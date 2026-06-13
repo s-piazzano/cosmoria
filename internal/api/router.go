@@ -25,6 +25,10 @@ func (r *Router) HandleFunc(pattern string, handler func(http.ResponseWriter, *h
 	r.mux.HandleFunc(pattern, handler)
 }
 
+func (r *Router) Handle(pattern string, handler http.Handler) {
+	r.mux.Handle(pattern, handler)
+}
+
 func (r *Router) registerHealth() {
 	r.mux.HandleFunc("GET /health", handlers.Health)
 }

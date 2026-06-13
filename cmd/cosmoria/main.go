@@ -9,6 +9,7 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/db"
+	"github.com/s-piazzano/cosmoria/internal/tenant"
 )
 
 func main() {
@@ -36,13 +37,24 @@ func main() {
 	authService := auth.NewService(pool, cfg)
 	authHandler := &handlers.AuthHandler{Service: authService}
 
+	tenantService := tenant.NewService(pool)
+	tenantHandler := &handlers.TenantHandler{Service: tenantService}
+
 	router := api.NewRouter()
 	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	router.HandleFunc("POST /api/auth/login", authHandler.Login)
 
+	router.HandleFunc("POST /api/projects/{pid}/tenants", tenantHandler.Create)
+	router.HandleFunc("GET /api/projects/{pid}/tenants", tenantHandler.List)
+	router.HandleFunc("GET /api/projects/{pid}/tenants/{tid}", tenantHandler.Get)
+	router.HandleFunc("DELETE /api/projects/{pid}/tenants/{tid}", tenantHandler.Delete)
+	router.HandleFunc("POST /api/projects/{pid}/tenants/{tid}/users", tenantHandler.AssignUser)
+	router.HandleFunc("DELETE /api/projects/{pid}/tenants/{tid}/users/{uid}", tenantHandler.RemoveUser)
+
 	mw := middleware.Chain(router,
 		middleware.Logging(),
 		middleware.Auth(cfg.JWTSecret),
+		middleware.Tenant(tenantService),
 	)
 
 	app := core.NewApp(cfg, pool, mw)
