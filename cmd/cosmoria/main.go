@@ -21,6 +21,12 @@ func main() {
 	}
 	defer pool.Close()
 
+	if cfg.AutoMigrate {
+		if err := db.Migrate(pool, "db/migrations"); err != nil {
+			log.Fatalf("migrations: %v", err)
+		}
+	}
+
 	router := api.NewRouter()
 	app := core.NewApp(cfg, pool, router)
 

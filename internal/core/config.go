@@ -10,6 +10,7 @@ const defaultPort = 8080
 type Config struct {
 	Port        int
 	DatabaseURL string
+	AutoMigrate bool
 }
 
 func LoadConfig() *Config {
@@ -22,5 +23,6 @@ func LoadConfig() *Config {
 	return &Config{
 		Port:        port,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
+		AutoMigrate: os.Getenv("AUTO_MIGRATE") != "false",
 	}
 }
