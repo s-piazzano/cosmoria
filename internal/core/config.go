@@ -8,7 +8,8 @@ import (
 const defaultPort = 8080
 
 type Config struct {
-	Port int
+	Port        int
+	DatabaseURL string
 }
 
 func LoadConfig() *Config {
@@ -18,5 +19,8 @@ func LoadConfig() *Config {
 			port = p
 		}
 	}
-	return &Config{Port: port}
+	return &Config{
+		Port:        port,
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+	}
 }
