@@ -21,6 +21,10 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
 
+func (r *Router) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	r.mux.HandleFunc(pattern, handler)
+}
+
 func (r *Router) registerHealth() {
 	r.mux.HandleFunc("GET /health", handlers.Health)
 }

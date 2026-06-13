@@ -4,6 +4,9 @@ import (
 	"log"
 
 	"github.com/s-piazzano/cosmoria/internal/api"
+	"github.com/s-piazzano/cosmoria/internal/api/handlers"
+	"github.com/s-piazzano/cosmoria/internal/api/middleware"
+	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/db"
 )
@@ -13,6 +16,9 @@ func main() {
 
 	if cfg.DatabaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
+	}
+	if cfg.JWTSecret == "" {
+		log.Fatal("JWT_SECRET is required")
 	}
 
 	pool, err := db.NewPool(cfg.DatabaseURL)
@@ -27,8 +33,19 @@ func main() {
 		}
 	}
 
+	authService := auth.NewService(pool, cfg)
+	authHandler := &handlers.AuthHandler{Service: authService}
+
 	router := api.NewRouter()
-	app := core.NewApp(cfg, pool, router)
+	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
+	router.HandleFunc("POST /api/auth/login", authHandler.Login)
+
+	mw := middleware.Chain(router,
+		middleware.Logging(),
+		middleware.Auth(cfg.JWTSecret),
+	)
+
+	app := core.NewApp(cfg, pool, mw)
 
 	if err := app.Run(); err != nil {
 		log.Fatalf("server stopped: %v", err)
