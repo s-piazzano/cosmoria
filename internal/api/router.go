@@ -17,6 +17,10 @@ func NewRouter() *Router {
 	return r
 }
 
+func (r *Router) Mux() *http.ServeMux {
+	return r.mux
+}
+
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }

@@ -4,30 +4,22 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/s-piazzano/cosmoria/internal/auth"
+	"github.com/s-piazzano/cosmoria/internal/adminauth"
 )
 
-var adminPrefix = "/api/admin/"
-
-var publicRoutes = []string{
-	"/health",
-	"/api/auth/signup",
-	"/api/auth/login",
+var adminPublicRoutes = []string{
+	"/api/admin/setup",
+	"/api/admin/login",
 }
 
-func Auth(secret string) func(http.Handler) http.Handler {
+func AdminAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for _, p := range publicRoutes {
+			for _, p := range adminPublicRoutes {
 				if r.URL.Path == p {
 					next.ServeHTTP(w, r)
 					return
 				}
-			}
-
-			if strings.HasPrefix(r.URL.Path, adminPrefix) {
-				next.ServeHTTP(w, r)
-				return
 			}
 
 			authHeader := r.Header.Get("Authorization")
@@ -37,13 +29,13 @@ func Auth(secret string) func(http.Handler) http.Handler {
 			}
 
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-			claims, err := auth.ValidateToken(tokenStr, secret)
+			claims, err := adminauth.ValidateToken(tokenStr, secret)
 			if err != nil {
 				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 				return
 			}
 
-			ctx := auth.WithAuth(r.Context(), claims)
+			ctx := adminauth.WithAdminAuth(r.Context(), claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

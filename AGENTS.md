@@ -82,6 +82,34 @@ Any omission is considered a critical security bug.
 
 ---
 
+# 👑 Admin System Rules
+
+Cosmoria has two separate auth systems:
+
+## Platform Admins (`admin_users`)
+
+Administrators of the Cosmoria platform itself (not end-users of built apps).
+
+- `admin_users` table stores: id, email, password_hash, role, created_at
+- Roles: `super_admin` (full access), `admin` (limited, assigned per-project)
+- Auth via JWT with `ADMIN_JWT_SECRET` (separate from user `JWT_SECRET`)
+- API endpoints under `/api/admin/` prefix
+
+## Per-Project Admin Permissions (`admin_project_roles`)
+
+- Granular roles assigned to `admin_users` per-project
+- Stored in `admin_project_roles` table (admin_user_id, project_id, role)
+- Only `super_admin` can assign/remove roles
+- Permissions verified on every admin request by querying DB (not embedded in JWT)
+
+## Bootstrap Flow
+
+- First startup: `POST /api/admin/setup` creates the initial `super_admin` + default project
+- Only works once (checks `admin_users` count)
+- After setup: `POST /api/admin/login` for admin auth
+
+---
+
 # 📦 Collections System Rules
 
 Collections define dynamic schemas stored in PostgreSQL.

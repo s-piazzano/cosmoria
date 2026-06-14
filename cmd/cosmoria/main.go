@@ -6,6 +6,7 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/api"
 	"github.com/s-piazzano/cosmoria/internal/api/handlers"
 	"github.com/s-piazzano/cosmoria/internal/api/middleware"
+	"github.com/s-piazzano/cosmoria/internal/adminauth"
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/db"
@@ -20,6 +21,9 @@ func main() {
 	}
 	if cfg.JWTSecret == "" {
 		log.Fatal("JWT_SECRET is required")
+	}
+	if cfg.AdminJWTSecret == "" {
+		log.Fatal("ADMIN_JWT_SECRET is required")
 	}
 
 	pool, err := db.NewPool(cfg.DatabaseURL)
@@ -40,6 +44,9 @@ func main() {
 	tenantService := tenant.NewService(pool)
 	tenantHandler := &handlers.TenantHandler{Service: tenantService}
 
+	adminService := adminauth.NewService(pool, cfg)
+	adminHandler := &handlers.AdminHandler{Service: adminService}
+
 	router := api.NewRouter()
 	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	router.HandleFunc("POST /api/auth/login", authHandler.Login)
@@ -51,9 +58,18 @@ func main() {
 	router.HandleFunc("POST /api/projects/{pid}/tenants/{tid}/users", tenantHandler.AssignUser)
 	router.HandleFunc("DELETE /api/projects/{pid}/tenants/{tid}/users/{uid}", tenantHandler.RemoveUser)
 
+	router.HandleFunc("POST /api/admin/setup", adminHandler.Setup)
+	router.HandleFunc("POST /api/admin/login", adminHandler.Login)
+	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
+	router.HandleFunc("GET /api/admin/projects", adminHandler.ListProjects)
+	router.HandleFunc("POST /api/admin/projects/{pid}/roles", adminHandler.AssignRole)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/roles/{aid}", adminHandler.RemoveRole)
+	router.HandleFunc("GET /api/admin/projects/{pid}/roles", adminHandler.ListRoles)
+
 	mw := middleware.Chain(router,
 		middleware.Logging(),
 		middleware.Auth(cfg.JWTSecret),
+		middleware.AdminAuth(cfg.AdminJWTSecret),
 		middleware.Tenant(tenantService),
 	)
 
