@@ -110,6 +110,37 @@ Administrators of the Cosmoria platform itself (not end-users of built apps).
 
 ---
 
+# 🎭 RBAC (Role-Based Access Control) Rules
+
+Cosmoria enforces per-project RBAC for SaaS end-users.
+
+## Role Definitions
+
+- Roles are created per-project by `super_admin` via API
+- Each role has a set of `(resource, action)` permissions
+- Supported resources: `tenants`, `collections`, `records`, `files`
+- Supported actions: `create`, `read`, `update`, `delete`
+- Wildcard `*` matches any resource or action
+
+## User-Role Assignment
+
+- Users are assigned to exactly one role per project (`user_project_roles` table)
+- Role is NOT embedded in the JWT — queried from DB on every request
+- Assignment managed by `super_admin` via `/api/admin/projects/{pid}/users/{uid}/role`
+
+## Enforcement
+
+- RBAC middleware wraps each user-facing route with `RequirePermission(svc, resource, action)`
+- Middleware checks `auth.GetAuth(ctx)` for UserID + ProjectID
+- Queries `CheckAccess(userID, projectID, resource, action) → bool`
+- Supports wildcards: if a role has `(tenants, *)`, it covers all actions on tenants
+
+## Admin routes
+
+RBAC management endpoints are under `/api/admin/` and protected by admin auth (super_admin only).
+
+---
+
 # 📦 Collections System Rules
 
 Collections define dynamic schemas stored in PostgreSQL.

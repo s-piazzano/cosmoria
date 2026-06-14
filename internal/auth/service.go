@@ -32,7 +32,6 @@ type UserDTO struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
 	ProjectID string `json:"project_id"`
-	Role      string `json:"role"`
 }
 
 func (s *Service) Signup(ctx context.Context, input SignupInput) (*AuthResult, error) {
@@ -43,7 +42,7 @@ func (s *Service) Signup(ctx context.Context, input SignupInput) (*AuthResult, e
 
 	var userID string
 	err = s.pool.QueryRow(ctx,
-		`INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'viewer') RETURNING id`,
+		`INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id`,
 		input.Email, string(hash),
 	).Scan(&userID)
 	if err != nil {
@@ -58,7 +57,6 @@ func (s *Service) Signup(ctx context.Context, input SignupInput) (*AuthResult, e
 	claims := Claims{
 		UserID:    userID,
 		ProjectID: input.ProjectID,
-		Role:      "viewer",
 	}
 
 	token, err := GenerateToken(claims, s.cfg.JWTSecret, expiry)
@@ -72,7 +70,6 @@ func (s *Service) Signup(ctx context.Context, input SignupInput) (*AuthResult, e
 			ID:        userID,
 			Email:     input.Email,
 			ProjectID: input.ProjectID,
-			Role:      "viewer",
 		},
 	}, nil
 }
@@ -84,11 +81,11 @@ type LoginInput struct {
 }
 
 func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthResult, error) {
-	var userID, passwordHash, role string
+	var userID, passwordHash string
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, password_hash, role FROM users WHERE email = $1`,
+		`SELECT id, password_hash FROM users WHERE email = $1`,
 		input.Email,
-	).Scan(&userID, &passwordHash, &role)
+	).Scan(&userID, &passwordHash)
 	if err != nil {
 		return nil, fmt.Errorf("auth: invalid credentials")
 	}
@@ -105,7 +102,6 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthResult, err
 	claims := Claims{
 		UserID:    userID,
 		ProjectID: input.ProjectID,
-		Role:      role,
 	}
 
 	token, err := GenerateToken(claims, s.cfg.JWTSecret, expiry)
@@ -119,7 +115,6 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthResult, err
 			ID:        userID,
 			Email:     input.Email,
 			ProjectID: input.ProjectID,
-			Role:      role,
 		},
 	}, nil
 }

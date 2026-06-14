@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/s-piazzano/cosmoria/internal/api"
 	"github.com/s-piazzano/cosmoria/internal/api/handlers"
@@ -10,6 +11,7 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/db"
+	"github.com/s-piazzano/cosmoria/internal/rbac"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
 )
 
@@ -47,24 +49,44 @@ func main() {
 	adminService := adminauth.NewService(pool, cfg)
 	adminHandler := &handlers.AdminHandler{Service: adminService}
 
+	rbacService := rbac.NewService(pool)
+	rolesHandler := &handlers.RolesHandler{Service: rbacService}
+
 	router := api.NewRouter()
 	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	router.HandleFunc("POST /api/auth/login", authHandler.Login)
 
-	router.HandleFunc("POST /api/projects/{pid}/tenants", tenantHandler.Create)
-	router.HandleFunc("GET /api/projects/{pid}/tenants", tenantHandler.List)
-	router.HandleFunc("GET /api/projects/{pid}/tenants/{tid}", tenantHandler.Get)
-	router.HandleFunc("DELETE /api/projects/{pid}/tenants/{tid}", tenantHandler.Delete)
-	router.HandleFunc("POST /api/projects/{pid}/tenants/{tid}/users", tenantHandler.AssignUser)
-	router.HandleFunc("DELETE /api/projects/{pid}/tenants/{tid}/users/{uid}", tenantHandler.RemoveUser)
+	router.Handle("POST /api/projects/{pid}/tenants",
+		middleware.RequirePermission(rbacService, "tenants", "create")(http.HandlerFunc(tenantHandler.Create)))
+	router.Handle("GET /api/projects/{pid}/tenants",
+		middleware.RequirePermission(rbacService, "tenants", "read")(http.HandlerFunc(tenantHandler.List)))
+	router.Handle("GET /api/projects/{pid}/tenants/{tid}",
+		middleware.RequirePermission(rbacService, "tenants", "read")(http.HandlerFunc(tenantHandler.Get)))
+	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}",
+		middleware.RequirePermission(rbacService, "tenants", "delete")(http.HandlerFunc(tenantHandler.Delete)))
+	router.Handle("POST /api/projects/{pid}/tenants/{tid}/users",
+		middleware.RequirePermission(rbacService, "tenants", "update")(http.HandlerFunc(tenantHandler.AssignUser)))
+	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}/users/{uid}",
+		middleware.RequirePermission(rbacService, "tenants", "delete")(http.HandlerFunc(tenantHandler.RemoveUser)))
 
 	router.HandleFunc("POST /api/admin/setup", adminHandler.Setup)
 	router.HandleFunc("POST /api/admin/login", adminHandler.Login)
 	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
 	router.HandleFunc("GET /api/admin/projects", adminHandler.ListProjects)
-	router.HandleFunc("POST /api/admin/projects/{pid}/roles", adminHandler.AssignRole)
-	router.HandleFunc("DELETE /api/admin/projects/{pid}/roles/{aid}", adminHandler.RemoveRole)
-	router.HandleFunc("GET /api/admin/projects/{pid}/roles", adminHandler.ListRoles)
+
+	router.HandleFunc("POST /api/admin/projects/{pid}/admin-roles", adminHandler.AssignRole)
+	router.HandleFunc("GET /api/admin/projects/{pid}/admin-roles", adminHandler.ListRoles)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/admin-roles/{aid}", adminHandler.RemoveRole)
+
+	router.HandleFunc("POST /api/admin/projects/{pid}/roles", rolesHandler.CreateRole)
+	router.HandleFunc("GET /api/admin/projects/{pid}/roles", rolesHandler.ListRoles)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/roles/{rid}", rolesHandler.DeleteRole)
+	router.HandleFunc("POST /api/admin/projects/{pid}/roles/{rid}/permissions", rolesHandler.SetPermission)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/roles/{rid}/permissions", rolesHandler.RemovePermission)
+	router.HandleFunc("GET /api/admin/projects/{pid}/roles/{rid}/permissions", rolesHandler.ListPermissions)
+	router.HandleFunc("POST /api/admin/projects/{pid}/users/{uid}/role", rolesHandler.AssignUserRole)
+	router.HandleFunc("GET /api/admin/projects/{pid}/users/{uid}/role", rolesHandler.GetUserRole)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/users/{uid}/role", rolesHandler.RemoveUserRole)
 
 	mw := middleware.Chain(router,
 		middleware.Logging(),
