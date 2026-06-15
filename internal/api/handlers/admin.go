@@ -30,6 +30,16 @@ type assignRoleRequest struct {
 	Role        string `json:"role"`
 }
 
+// @Summary Bootstrap the platform
+// @Description Create the first super_admin and default project. Only works once.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param body body setupRequest true "Admin credentials"
+// @Success 201 {object} map[string]any "token, admin, project"
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/admin/setup [post]
 func (h *AdminHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	var req setupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -54,6 +64,16 @@ func (h *AdminHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// @Summary Admin login
+// @Description Authenticate as a platform admin and receive a JWT.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param body body loginRequest true "Admin credentials"
+// @Success 200 {object} adminauth.AuthResult
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/admin/login [post]
 func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -74,6 +94,17 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// @Summary Create a project
+// @Security AdminBearerAuth
+// @Description Create a new project as a platform admin.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param body body createProjectRequest true "Project name"
+// @Success 201 {object} adminauth.Project
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects [post]
 func (h *AdminHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -100,6 +131,14 @@ func (h *AdminHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, project)
 }
 
+// @Summary List accessible projects
+// @Security AdminBearerAuth
+// @Description List all projects accessible by the authenticated admin.
+// @Tags Admin
+// @Produce json
+// @Success 200 {array} adminauth.ProjectWithRole
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects [get]
 func (h *AdminHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -119,6 +158,19 @@ func (h *AdminHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, projects)
 }
 
+// @Summary Assign admin role to a project
+// @Security AdminBearerAuth
+// @Description Assign an admin user to a project with a specific role. super_admin only.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param body body assignRoleRequest true "Admin user ID and role"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/admin-roles [post]
 func (h *AdminHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -154,6 +206,17 @@ func (h *AdminHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Remove admin role from a project
+// @Security AdminBearerAuth
+// @Description Remove an admin user's access to a project. super_admin only.
+// @Tags Admin
+// @Param pid path string true "Project ID"
+// @Param aid path string true "Admin user ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/admin-roles/{aid} [delete]
 func (h *AdminHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -180,6 +243,17 @@ func (h *AdminHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary List admin roles for a project
+// @Security AdminBearerAuth
+// @Description List all admin roles assigned to a project. super_admin only.
+// @Tags Admin
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Success 200 {array} adminauth.AdminProjectRole
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/admin-roles [get]
 func (h *AdminHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {

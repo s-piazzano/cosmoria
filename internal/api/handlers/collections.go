@@ -21,6 +21,18 @@ type updateCollectionSchemaRequest struct {
 	Schema collections.Schema `json:"schema"`
 }
 
+// @Summary Create a collection
+// @Security AdminBearerAuth
+// @Description Create a new dynamic collection with a schema.
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param body body createCollectionRequest true "Collection definition"
+// @Success 201 {object} collections.Collection
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects/{pid}/collections [post]
 func (h *CollectionsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -52,6 +64,15 @@ func (h *CollectionsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, c)
 }
 
+// @Summary List collections
+// @Security AdminBearerAuth
+// @Description List all collections for a project.
+// @Tags Collections
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Success 200 {array} collections.Collection
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects/{pid}/collections [get]
 func (h *CollectionsHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -76,6 +97,17 @@ func (h *CollectionsHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
+// @Summary Get a collection
+// @Security AdminBearerAuth
+// @Description Get a collection definition by ID.
+// @Tags Collections
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param cid path string true "Collection ID"
+// @Success 200 {object} collections.Collection
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/admin/projects/{pid}/collections/{cid} [get]
 func (h *CollectionsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -98,6 +130,19 @@ func (h *CollectionsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, c)
 }
 
+// @Summary Update collection schema
+// @Security AdminBearerAuth
+// @Description Update the schema of an existing collection.
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param cid path string true "Collection ID"
+// @Param body body updateCollectionSchemaRequest true "Updated schema"
+// @Success 200 {object} collections.Collection
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects/{pid}/collections/{cid} [put]
 func (h *CollectionsHandler) UpdateSchema(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
@@ -126,6 +171,16 @@ func (h *CollectionsHandler) UpdateSchema(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, c)
 }
 
+// @Summary Delete a collection
+// @Security AdminBearerAuth
+// @Description Delete a collection and all its records.
+// @Tags Collections
+// @Param pid path string true "Project ID"
+// @Param cid path string true "Collection ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/admin/projects/{pid}/collections/{cid} [delete]
 func (h *CollectionsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {

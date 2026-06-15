@@ -1,0 +1,1642 @@
+basePath: /
+definitions:
+  adminauth.AdminProjectRole:
+    properties:
+      admin_user_id:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      project_id:
+        type: string
+      role:
+        type: string
+    type: object
+  adminauth.AdminUser:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+    type: object
+  adminauth.AuthResult:
+    properties:
+      admin:
+        $ref: '#/definitions/adminauth.AdminUser'
+      token:
+        type: string
+    type: object
+  adminauth.Project:
+    properties:
+      admin_owner_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      jwt_expiry:
+        type: integer
+      name:
+        type: string
+    type: object
+  adminauth.ProjectWithRole:
+    properties:
+      admin_owner_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      jwt_expiry:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  auth.AuthResult:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/auth.UserDTO'
+    type: object
+  auth.UserDTO:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      project_id:
+        type: string
+    type: object
+  collections.Collection:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      project_id:
+        type: string
+      schema:
+        $ref: '#/definitions/collections.Schema'
+    type: object
+  collections.Field:
+    properties:
+      name:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  collections.Schema:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/collections.Field'
+        type: array
+    type: object
+  handlers.assignRoleRequest:
+    properties:
+      admin_user_id:
+        type: string
+      role:
+        type: string
+    type: object
+  handlers.assignUserRequest:
+    properties:
+      user_id:
+        type: string
+    type: object
+  handlers.authRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      project_id:
+        type: string
+    type: object
+  handlers.createCollectionRequest:
+    properties:
+      name:
+        type: string
+      schema:
+        $ref: '#/definitions/collections.Schema'
+    type: object
+  handlers.createProjectRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  handlers.createRecordRequest:
+    properties:
+      data:
+        additionalProperties:
+          type: any
+        type: object
+    type: object
+  handlers.createRoleRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  handlers.createTenantRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  handlers.loginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  handlers.permissionRequest:
+    properties:
+      action:
+        type: string
+      resource:
+        type: string
+    type: object
+  handlers.setupRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  handlers.updateCollectionSchemaRequest:
+    properties:
+      schema:
+        $ref: '#/definitions/collections.Schema'
+    type: object
+  handlers.updateRecordRequest:
+    properties:
+      data:
+        additionalProperties:
+          type: any
+        type: object
+    type: object
+  handlers.userRoleRequest:
+    properties:
+      role_id:
+        type: string
+    type: object
+  rbac.Permission:
+    properties:
+      action:
+        type: string
+      id:
+        type: string
+      resource:
+        type: string
+      role_id:
+        type: string
+    type: object
+  rbac.Role:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      project_id:
+        type: string
+    type: object
+  rbac.RoleWithPermissions:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/rbac.Permission'
+        type: array
+      project_id:
+        type: string
+    type: object
+  rbac.UserProjectRole:
+    properties:
+      created_at:
+        type: string
+      project_id:
+        type: string
+      role_id:
+        type: string
+      role_name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  records.Record:
+    properties:
+      collection_id:
+        type: string
+      created_at:
+        type: string
+      data:
+        additionalProperties:
+          type: any
+        type: object
+      id:
+        type: string
+      project_id:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  tenant.Tenant:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      project_id:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@cosmoria.dev
+    name: Cosmoria Support
+    url: https://cosmoria.dev/support
+  description: Type "Bearer" followed by a space and the admin JWT token.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://cosmoria.dev/terms
+  title: Cosmoria API
+  version: 0.1.0
+paths:
+  /api/admin/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate as a platform admin and receive a JWT.
+      parameters:
+      - description: Admin credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/adminauth.AuthResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Admin login
+      tags:
+      - Admin
+  /api/admin/projects:
+    get:
+      description: List all projects accessible by the authenticated admin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/adminauth.ProjectWithRole'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List accessible projects
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new project as a platform admin.
+      parameters:
+      - description: Project name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/adminauth.Project'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Create a project
+      tags:
+      - Admin
+  /api/admin/projects/{pid}/admin-roles:
+    get:
+      description: List all admin roles assigned to a project. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/adminauth.AdminProjectRole'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List admin roles for a project
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Assign an admin user to a project with a specific role. super_admin
+        only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Admin user ID and role
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.assignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Assign admin role to a project
+      tags:
+      - Admin
+  /api/admin/projects/{pid}/admin-roles/{aid}:
+    delete:
+      description: Remove an admin user's access to a project. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Admin user ID
+        in: path
+        name: aid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Remove admin role from a project
+      tags:
+      - Admin
+  /api/admin/projects/{pid}/collections:
+    get:
+      description: List all collections for a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/collections.Collection'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List collections
+      tags:
+      - Collections
+    post:
+      consumes:
+      - application/json
+      description: Create a new dynamic collection with a schema.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Collection definition
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createCollectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/collections.Collection'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Create a collection
+      tags:
+      - Collections
+  /api/admin/projects/{pid}/collections/{cid}:
+    delete:
+      description: Delete a collection and all its records.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Delete a collection
+      tags:
+      - Collections
+    get:
+      description: Get a collection definition by ID.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/collections.Collection'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Get a collection
+      tags:
+      - Collections
+    put:
+      consumes:
+      - application/json
+      description: Update the schema of an existing collection.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Updated schema
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateCollectionSchemaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/collections.Collection'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Update collection schema
+      tags:
+      - Collections
+  /api/admin/projects/{pid}/roles:
+    get:
+      description: List all RBAC roles for a project. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rbac.RoleWithPermissions'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List roles
+      tags:
+      - RBAC
+    post:
+      consumes:
+      - application/json
+      description: Create a new RBAC role for a project. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Role name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rbac.Role'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Create a role
+      tags:
+      - RBAC
+  /api/admin/projects/{pid}/roles/{rid}:
+    delete:
+      description: Delete a role and its permissions. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Delete a role
+      tags:
+      - RBAC
+  /api/admin/projects/{pid}/roles/{rid}/permissions:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a (resource, action) permission from a role. super_admin
+        only.
+      parameters:
+      - description: Role ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      - description: Resource and action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.permissionRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Remove a permission from a role
+      tags:
+      - RBAC
+    get:
+      description: List all permissions assigned to a role. super_admin only.
+      parameters:
+      - description: Role ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rbac.Permission'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List permissions for a role
+      tags:
+      - RBAC
+    post:
+      consumes:
+      - application/json
+      description: Add a (resource, action) permission to a role. super_admin only.
+      parameters:
+      - description: Role ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      - description: Resource and action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.permissionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rbac.Permission'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Set a permission on a role
+      tags:
+      - RBAC
+  /api/admin/projects/{pid}/users/{uid}/role:
+    delete:
+      description: Remove the RBAC role assignment from a SaaS user. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: uid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Remove user role
+      tags:
+      - RBAC
+    get:
+      description: Get the RBAC role assigned to a SaaS user for a project. super_admin
+        only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rbac.UserProjectRole'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Get user role
+      tags:
+      - RBAC
+    post:
+      consumes:
+      - application/json
+      description: Assign an RBAC role to a SaaS user for a project. super_admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: uid
+        required: true
+        type: string
+      - description: Role ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.userRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rbac.UserProjectRole'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: Assign a role to a user
+      tags:
+      - RBAC
+  /api/admin/setup:
+    post:
+      consumes:
+      - application/json
+      description: Create the first super_admin and default project. Only works once.
+      parameters:
+      - description: Admin credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.setupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: token, admin, project
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Bootstrap the platform
+      tags:
+      - Admin
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate and receive a JWT token for API access.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.authRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login as a SaaS user
+      tags:
+      - Auth
+  /api/auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Create a new end-user account scoped to a project.
+      parameters:
+      - description: Signup credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.authRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.AuthResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new SaaS user
+      tags:
+      - Auth
+  /api/projects/{pid}/tenants:
+    get:
+      description: List all tenants within a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tenant.Tenant'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List tenants
+      tags:
+      - Tenants
+    post:
+      consumes:
+      - application/json
+      description: Create a new tenant within a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/tenant.Tenant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a tenant
+      tags:
+      - Tenants
+  /api/projects/{pid}/tenants/{tid}:
+    delete:
+      description: Delete a tenant and its data.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a tenant
+      tags:
+      - Tenants
+    get:
+      description: Get tenant details by ID.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/tenant.Tenant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a tenant
+      tags:
+      - Tenants
+  /api/projects/{pid}/tenants/{tid}/collections/{cid}/records:
+    get:
+      description: List records in a collection with cursor-based pagination.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Pagination cursor (record ID)
+        in: query
+        name: cursor
+        type: string
+      - description: Page size (default 50, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: [Record], next_cursor: string'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List records
+      tags:
+      - Records
+    post:
+      consumes:
+      - application/json
+      description: Create a new record in a collection. Data is validated against
+        the collection schema.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Record data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/records.Record'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a record
+      tags:
+      - Records
+  /api/projects/{pid}/tenants/{tid}/collections/{cid}/records/{rid}:
+    delete:
+      description: Delete a record by ID.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Record ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a record
+      tags:
+      - Records
+    get:
+      description: Get a single record by ID.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Record ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/records.Record'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a record
+      tags:
+      - Records
+    put:
+      consumes:
+      - application/json
+      description: Replace a record's data (full JSONB replacement). Validated against
+        the schema.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Collection ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: Record ID
+        in: path
+        name: rid
+        required: true
+        type: string
+      - description: Updated data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.updateRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/records.Record'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a record
+      tags:
+      - Records
+  /api/projects/{pid}/tenants/{tid}/users:
+    post:
+      consumes:
+      - application/json
+      description: Assign an existing user to a tenant.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: User ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.assignUserRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Assign user to tenant
+      tags:
+      - Tenants
+  /api/projects/{pid}/tenants/{tid}/users/{uid}:
+    delete:
+      description: Remove a user's access to a tenant.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: uid
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove user from tenant
+      tags:
+      - Tenants
+  /health:
+    get:
+      description: Returns the health status of the server.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'status: ok'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - Health
+schemes:
+- http
+securityDefinitions:
+  AdminBearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -149,6 +149,109 @@ Rules:
 - Schema is stored as JSONB
 - No direct SQL schema modifications per collection
 - All CRUD must go through the collections engine
+- Schema mutation is always permitted; existing records are NOT re-validated
+
+---
+
+# 📖 OpenAPI / Swagger Rules
+
+Cosmoria generates an OpenAPI spec from Go handler annotations using `swaggo/swag`.
+
+- **Every handler** MUST have swaggo annotations: `@Summary`, `@Description`, `@Tags`, `@Param`, `@Success`, `@Failure`, `@Router`
+- **Auth-required routes** MUST include `@Security BearerAuth` or `@Security AdminBearerAuth`
+- **Response types** in `{object}` MUST reference the actual Go struct (package.TypeName)
+- The spec is served at `/docs/doc.json` and Swagger UI at `/docs/`
+- To regenerate after changing annotations: `swag init -g cmd/cosmoria/main.go -o docs/`
+- Generated files (`docs/docs.go`, `docs/swagger.json`, `docs/swagger.yaml`) are committed
+
+---
+
+# 🖥️ CLI Rules
+
+All interaction goes through the `cosmoria` binary.
+
+```
+cosmoria serve              Start server (default)
+cosmoria dev                Hot reload (watch .go → rebuild → restart)
+cosmoria init               Generate .env, docker-compose.yml, Dockerfile
+cosmoria migrate new <name> Create migration pair
+cosmoria migrate up/down    Run/revert migrations
+```
+
+- The CLI uses only stdlib `flag` and `os.Args` — no cobra/urfave
+- `serve` and `migrate` commands load config and connect to the database
+- `dev` command compiles and runs a child binary, watching for `.go` file changes
+- `init` command creates files in the current directory (not in `cmd/`)
+
+---
+
+# 🎯 TypeScript SDK Rules
+
+The TypeScript SDK lives at `sdk/typescript/`.
+
+- Zero runtime dependencies — uses only `fetch`
+- All methods return typed Promises
+- Auto-generated `api.ts` from OpenAPI spec (via `scripts/generate-sdk.sh`)
+- Hand-written `client.ts` provides the `CosmoriaClient` class
+- After adding/modifying API endpoints:
+  1. Add swaggo annotations to the handler
+  2. Run `swag init -g cmd/cosmoria/main.go -o docs/`
+  3. Run `./scripts/generate-sdk.sh`
+  4. Update `client.ts` with the new method
+- Auth tokens are passed via `client.setToken(token)` between requests
+
+---
+
+# 🔧 Zero-Config Rules
+
+Cosmoria starts without any environment variables:
+
+| Variable | Default | Behavior |
+|----------|---------|----------|
+| `DATABASE_URL` | `postgres://localhost:5432/cosmoria?sslmode=disable` | Falls back silently |
+| `JWT_SECRET` | Random 32-byte hex | Generated on startup (warns, tokens lost on restart) |
+| `ADMIN_JWT_SECRET` | Random 32-byte hex | Generated on startup (warns, tokens lost on restart) |
+
+- Production deployments MUST set both JWT secrets explicitly
+- The default DATABASE_URL expects PostgreSQL on localhost:5432
+- `cosmoria init` generates a docker-compose.yml with PostgreSQL for this
+- Never remove the `slog.Warn` messages — they alert users to the ephemeral secrets
+
+---
+
+# 🔥 Hot Reload Rules
+
+`cosmoria dev` uses `fsnotify` for inotify file watching.
+
+- Watches all `.go` files recursively (excluding `.git` and hidden dirs)
+- Debounces changes over 150ms to avoid rapid rebuilds
+- On change: kills child process → rebuild → restart
+- If build fails: the previous binary is restarted (not left dead)
+- The dev binary is compiled to `/tmp/cosmoria-dev`
+- Environment variables are inherited from the parent shell
+
+---
+
+# 📦 Dependencies
+
+Approved external dependencies:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `pgx/v5` | v5.10.0 | PostgreSQL driver |
+| `golang-migrate/migrate/v4` | v4.19.1 | Database migrations |
+| `golang-jwt/jwt/v5` | v5.3.1 | JWT signing/validation |
+| `golang.org/x/crypto` | latest | bcrypt hashing |
+| `swaggo/http-swagger` | v1.3.4 | Serve Swagger UI |
+| `fsnotify` | v1.10.1 | File watcher for hot reload |
+
+Dev-only tools:
+| Tool | Purpose |
+|------|---------|
+| `swaggo/swag` CLI | Generate OpenAPI spec from annotations |
+| `openapi-typescript` (npm) | Generate TS types from OpenAPI spec |
+
+Always consult the approved list before adding new dependencies.
 
 ---
 

@@ -20,6 +20,18 @@ type assignUserRequest struct {
 	UserID string `json:"user_id"`
 }
 
+// @Summary Create a tenant
+// @Security BearerAuth
+// @Description Create a new tenant within a project.
+// @Tags Tenants
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param body body createTenantRequest true "Tenant name"
+// @Success 201 {object} tenant.Tenant
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/projects/{pid}/tenants [post]
 func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {
@@ -46,6 +58,15 @@ func (h *TenantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, t)
 }
 
+// @Summary List tenants
+// @Security BearerAuth
+// @Description List all tenants within a project.
+// @Tags Tenants
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Success 200 {array} tenant.Tenant
+// @Failure 500 {object} map[string]string
+// @Router /api/projects/{pid}/tenants [get]
 func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {
@@ -65,6 +86,17 @@ func (h *TenantHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tenants)
 }
 
+// @Summary Get a tenant
+// @Security BearerAuth
+// @Description Get tenant details by ID.
+// @Tags Tenants
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param tid path string true "Tenant ID"
+// @Success 200 {object} tenant.Tenant
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/projects/{pid}/tenants/{tid} [get]
 func (h *TenantHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {
@@ -87,6 +119,16 @@ func (h *TenantHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, t)
 }
 
+// @Summary Delete a tenant
+// @Security BearerAuth
+// @Description Delete a tenant and its data.
+// @Tags Tenants
+// @Param pid path string true "Project ID"
+// @Param tid path string true "Tenant ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/projects/{pid}/tenants/{tid} [delete]
 func (h *TenantHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {
@@ -108,6 +150,18 @@ func (h *TenantHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Assign user to tenant
+// @Security BearerAuth
+// @Description Assign an existing user to a tenant.
+// @Tags Tenants
+// @Accept json
+// @Param pid path string true "Project ID"
+// @Param tid path string true "Tenant ID"
+// @Param body body assignUserRequest true "User ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/projects/{pid}/tenants/{tid}/users [post]
 func (h *TenantHandler) AssignUser(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {
@@ -139,6 +193,17 @@ func (h *TenantHandler) AssignUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Remove user from tenant
+// @Security BearerAuth
+// @Description Remove a user's access to a tenant.
+// @Tags Tenants
+// @Param pid path string true "Project ID"
+// @Param tid path string true "Tenant ID"
+// @Param uid path string true "User ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/projects/{pid}/tenants/{tid}/users/{uid} [delete]
 func (h *TenantHandler) RemoveUser(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetAuth(r.Context())
 	if claims == nil {

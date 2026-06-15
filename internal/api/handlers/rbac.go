@@ -38,6 +38,19 @@ func (h *RolesHandler) checkSuperAdmin(w http.ResponseWriter, r *http.Request) b
 	return true
 }
 
+// @Summary Create a role
+// @Security AdminBearerAuth
+// @Description Create a new RBAC role for a project. super_admin only.
+// @Tags RBAC
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param body body createRoleRequest true "Role name"
+// @Success 201 {object} rbac.Role
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles [post]
 func (h *RolesHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -63,6 +76,16 @@ func (h *RolesHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, role)
 }
 
+// @Summary List roles
+// @Security AdminBearerAuth
+// @Description List all RBAC roles for a project. super_admin only.
+// @Tags RBAC
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Success 200 {array} rbac.RoleWithPermissions
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles [get]
 func (h *RolesHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -81,6 +104,16 @@ func (h *RolesHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, roles)
 }
 
+// @Summary Delete a role
+// @Security AdminBearerAuth
+// @Description Delete a role and its permissions. super_admin only.
+// @Tags RBAC
+// @Param pid path string true "Project ID"
+// @Param rid path string true "Role ID"
+// @Success 204 "No Content"
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles/{rid} [delete]
 func (h *RolesHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -96,6 +129,19 @@ func (h *RolesHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Set a permission on a role
+// @Security AdminBearerAuth
+// @Description Add a (resource, action) permission to a role. super_admin only.
+// @Tags RBAC
+// @Accept json
+// @Produce json
+// @Param rid path string true "Role ID"
+// @Param body body permissionRequest true "Resource and action"
+// @Success 201 {object} rbac.Permission
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles/{rid}/permissions [post]
 func (h *RolesHandler) SetPermission(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -121,6 +167,18 @@ func (h *RolesHandler) SetPermission(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, perm)
 }
 
+// @Summary Remove a permission from a role
+// @Security AdminBearerAuth
+// @Description Remove a (resource, action) permission from a role. super_admin only.
+// @Tags RBAC
+// @Accept json
+// @Param rid path string true "Role ID"
+// @Param body body permissionRequest true "Resource and action"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles/{rid}/permissions [delete]
 func (h *RolesHandler) RemovePermission(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -145,6 +203,16 @@ func (h *RolesHandler) RemovePermission(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary List permissions for a role
+// @Security AdminBearerAuth
+// @Description List all permissions assigned to a role. super_admin only.
+// @Tags RBAC
+// @Produce json
+// @Param rid path string true "Role ID"
+// @Success 200 {array} rbac.Permission
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/roles/{rid}/permissions [get]
 func (h *RolesHandler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -163,6 +231,20 @@ func (h *RolesHandler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, perms)
 }
 
+// @Summary Assign a role to a user
+// @Security AdminBearerAuth
+// @Description Assign an RBAC role to a SaaS user for a project. super_admin only.
+// @Tags RBAC
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param uid path string true "User ID"
+// @Param body body userRoleRequest true "Role ID"
+// @Success 200 {object} rbac.UserProjectRole
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/users/{uid}/role [post]
 func (h *RolesHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -189,6 +271,18 @@ func (h *RolesHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, upr)
 }
 
+// @Summary Get user role
+// @Security AdminBearerAuth
+// @Description Get the RBAC role assigned to a SaaS user for a project. super_admin only.
+// @Tags RBAC
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param uid path string true "User ID"
+// @Success 200 {object} rbac.UserProjectRole
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/admin/projects/{pid}/users/{uid}/role [get]
 func (h *RolesHandler) GetUserRole(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return
@@ -205,6 +299,16 @@ func (h *RolesHandler) GetUserRole(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, upr)
 }
 
+// @Summary Remove user role
+// @Security AdminBearerAuth
+// @Description Remove the RBAC role assignment from a SaaS user. super_admin only.
+// @Tags RBAC
+// @Param pid path string true "Project ID"
+// @Param uid path string true "User ID"
+// @Success 204 "No Content"
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid}/users/{uid}/role [delete]
 func (h *RolesHandler) RemoveUserRole(w http.ResponseWriter, r *http.Request) {
 	if !h.checkSuperAdmin(w, r) {
 		return

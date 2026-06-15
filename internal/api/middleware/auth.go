@@ -13,6 +13,7 @@ var publicRoutes = []string{
 	"/health",
 	"/api/auth/signup",
 	"/api/auth/login",
+	"/openapi.json",
 }
 
 func Auth(secret string) func(http.Handler) http.Handler {
@@ -26,6 +27,11 @@ func Auth(secret string) func(http.Handler) http.Handler {
 			}
 
 			if strings.HasPrefix(r.URL.Path, adminPrefix) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if strings.HasPrefix(r.URL.Path, "/docs") {
 				next.ServeHTTP(w, r)
 				return
 			}

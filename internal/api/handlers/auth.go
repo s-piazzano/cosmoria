@@ -17,6 +17,16 @@ type authRequest struct {
 	ProjectID string `json:"project_id"`
 }
 
+// @Summary Register a new SaaS user
+// @Description Create a new end-user account scoped to a project.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body authRequest true "Signup credentials"
+// @Success 201 {object} auth.AuthResult
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/auth/signup [post]
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	var req authRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -42,6 +52,16 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, result)
 }
 
+// @Summary Login as a SaaS user
+// @Description Authenticate and receive a JWT token for API access.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body authRequest true "Login credentials"
+// @Success 200 {object} auth.AuthResult
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req authRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

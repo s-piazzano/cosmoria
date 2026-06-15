@@ -1,0 +1,14 @@
+{
+  "name": "@cosmoria/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Cosmoria — backend engine for multi-tenant SaaS",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "files": [
+    "api.ts",
+    "client.ts",
+    "index.ts"
+  ]
+}

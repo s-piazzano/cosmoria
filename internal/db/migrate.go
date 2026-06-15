@@ -10,28 +10,51 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-func Migrate(pool *pgxpool.Pool, migrationsPath string) error {
+func migrateInstance(pool *pgxpool.Pool, migrationsPath string) (*migrate.Migrate, error) {
 	conn := stdlib.OpenDBFromPool(pool)
-	defer conn.Close()
-
 	driver, err := postgres.WithInstance(conn, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("db: migration driver: %w", err)
+		conn.Close()
+		return nil, fmt.Errorf("db: migration driver: %w", err)
 	}
 
 	src, err := (&file.File{}).Open(migrationsPath)
 	if err != nil {
-		return fmt.Errorf("db: migration source: %w", err)
+		conn.Close()
+		return nil, fmt.Errorf("db: migration source: %w", err)
 	}
 
 	m, err := migrate.NewWithInstance("file", src, "postgres", driver)
 	if err != nil {
-		return fmt.Errorf("db: migration instance: %w", err)
+		conn.Close()
+		return nil, fmt.Errorf("db: migration instance: %w", err)
 	}
+
+	return m, nil
+}
+
+func Migrate(pool *pgxpool.Pool, migrationsPath string) error {
+	m, err := migrateInstance(pool, migrationsPath)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("db: migration up: %w", err)
 	}
+	return nil
+}
 
+func MigrateDown(pool *pgxpool.Pool, migrationsPath string) error {
+	m, err := migrateInstance(pool, migrationsPath)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if err := m.Steps(-1); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("db: migration down: %w", err)
+	}
 	return nil
 }

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
@@ -15,6 +16,11 @@ func Tenant(svc *tenant.Service) func(http.Handler) http.Handler {
 					next.ServeHTTP(w, r)
 					return
 				}
+			}
+
+			if strings.HasPrefix(r.URL.Path, "/docs") {
+				next.ServeHTTP(w, r)
+				return
 			}
 
 			tenantID := r.Header.Get("X-Tenant-ID")
