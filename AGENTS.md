@@ -176,14 +176,82 @@ cosmoria dev                Hot reload (watch .go → rebuild → restart)
 cosmoria init               Generate .env, docker-compose.yml, Dockerfile
 cosmoria migrate new <name> Create migration pair
 cosmoria migrate up/down    Run/revert migrations
+cosmoria mcp                MCP server (JSON-RPC over stdin/stdout)
 ```
 
 - The CLI uses only stdlib `flag` and `os.Args` — no cobra/urfave
 - `serve` and `migrate` commands load config and connect to the database
 - `dev` command compiles and runs a child binary, watching for `.go` file changes
 - `init` command creates files in the current directory (not in `cmd/`)
+- `mcp` command starts an MCP server (JSON-RPC 2.0 over stdin/stdout)
 
 ---
+
+# 📋 Declarative Config Rules (`cosmoria.yaml`)
+
+Cosmoria applies a YAML config file at startup if `cosmoria.yaml` exists in the working directory.
+
+```yaml
+project: my-saas
+tenants:
+  - name: acme-corp
+collections:
+  - name: posts
+    schema:
+      fields:
+        - { name: title, type: string, required: true }
+        - { name: body, type: string }
+roles:
+  - name: editor
+    permissions:
+      - { resource: records, action: create }
+```
+
+Rules:
+- All operations are **idempotent** — resources are matched by name inside the project
+- If no `admin_users` exist, `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars must be set
+- The config file is applied **after** migrations, **before** the HTTP server starts
+- Does NOT replace the REST API — it's a declarative alternative for initial setup
+- Format is YAML only (not JSON, not TOML)
+- Config lives in `internal/configfile/`: parser + applier
+
+---
+
+# 🤖 MCP Server Rules
+
+`cosmoria mcp` exposes Cosmoria tools via the Model Context Protocol (JSON-RPC 2.0 over stdin/stdout).
+
+## Transport
+
+- **Stdio**: reads newline-delimited JSON-RPC from stdin, writes responses to stdout
+- **No HTTP transport** yet (planned for future)
+- Logs go to stderr (never to stdout)
+
+## Handshake (3 steps)
+
+1. Client sends `initialize` → Server responds with capabilities
+2. Client sends `notifications/initialized` → Server enters Ready state
+3. Server responds to `tools/list` and `tools/call`
+
+## Tools exposed (~19 tools)
+
+| Group | Tools |
+|-------|-------|
+| Setup | `cosmoria_setup` |
+| Projects | `cosmoria_project_create`, `cosmoria_project_list` |
+| Tenants | `cosmoria_tenant_create`, `cosmoria_tenant_list`, `cosmoria_tenant_get` |
+| Collections | `cosmoria_collection_create`, `cosmoria_collection_list`, `cosmoria_collection_get` |
+| RBAC | `cosmoria_role_create`, `cosmoria_role_list`, `cosmoria_role_set_permission`, `cosmoria_role_list_permissions` |
+| Records | `cosmoria_record_create`, `cosmoria_record_list`, `cosmoria_record_get`, `cosmoria_record_update`, `cosmoria_record_delete` |
+| Users | `cosmoria_user_assign_role` |
+
+## Implementation
+
+- Lives in `internal/mcp/`: types, server (message loop + dispatch), tools (definitions + handlers)
+- Each tool handler calls the existing service layer (adminauth, tenant, collections, rbac, records)
+- No authentication — the MCP server has direct DB access (local superuser)
+- No new dependencies for stdio transport (stdlib only)
+- State machine: `New → Initialized → Ready`
 
 # 🎯 TypeScript SDK Rules
 
@@ -244,6 +312,7 @@ Approved external dependencies:
 | `golang.org/x/crypto` | latest | bcrypt hashing |
 | `swaggo/http-swagger` | v1.3.4 | Serve Swagger UI |
 | `fsnotify` | v1.10.1 | File watcher for hot reload |
+| `yaml.v3` | v3.0.1 | YAML config file parsing |
 
 Dev-only tools:
 | Tool | Purpose |

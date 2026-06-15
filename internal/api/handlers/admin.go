@@ -51,7 +51,7 @@ func (h *AdminHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, project, err := h.Service.Setup(r.Context(), req.Email, req.Password)
+	result, project, err := h.Service.Setup(r.Context(), req.Email, req.Password, "Default Project")
 	if err != nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return

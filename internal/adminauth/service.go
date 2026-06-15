@@ -43,7 +43,7 @@ func NewService(pool *pgxpool.Pool, cfg *core.Config) *Service {
 	return &Service{pool: pool, cfg: cfg}
 }
 
-func (s *Service) Setup(ctx context.Context, email, password string) (*AuthResult, *Project, error) {
+func (s *Service) Setup(ctx context.Context, email, password, projectName string) (*AuthResult, *Project, error) {
 	var count int
 	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *Service) Setup(ctx context.Context, email, password string) (*AuthResul
 	var project Project
 	err = s.pool.QueryRow(ctx,
 		`INSERT INTO projects (name, admin_owner_id) VALUES ($1, $2) RETURNING id, name, admin_owner_id, created_at`,
-		"Default Project", adminID,
+		projectName, adminID,
 	).Scan(&project.ID, &project.Name, &project.AdminOwnerID, &project.CreatedAt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("adminauth: create project: %w", err)

@@ -1,176 +1,98 @@
 # Cosmoria
 
-## Open-source SaaS backend engine built for the modern development era.
+Written in Go. Single binary. Runs anywhere PostgreSQL runs.
 
-Cosmoria is a lightweight backend infrastructure layer for building secure, scalable, and self-hosted multi-tenant applications on PostgreSQL.
+A backend engine for multi-tenant SaaS applications. Define tenants,
+collections, and permissions — Cosmoria provides the REST API, auth,
+tenant isolation, and RBAC.
 
-While AI can help you generate applications faster than ever, production software still needs a reliable foundation:
-
-- identity
-- organizations
-- permissions
-- data isolation
-- APIs
-- storage
-- security boundaries
-
-Cosmoria provides these primitives out of the box.
-
-Build faster. Deploy anywhere. Keep control.
+```dockerfile
+docker run \
+  -e DATABASE_URL=postgres://postgres:password@host:5432/cosmoria?sslmode=disable \
+  -p 8080:8080 \
+  ghcr.io/s-piazzano/cosmoria
+```
 
 ---
 
-## Why Cosmoria?
+## Define your app in one file
 
-Modern applications need more than generated code.
+Write a `cosmoria.yaml`, then `cosmoria serve`. Everything is created
+idempotently.
 
-They need infrastructure that is:
+```yaml
+# cosmoria.yaml
+project: my-saas
+tenants:
+  - name: acme-corp
+  - name: globex
+collections:
+  - name: posts
+    schema:
+      fields:
+        - { name: title, type: string, required: true }
+        - { name: body, type: string }
+        - { name: published, type: boolean }
+roles:
+  - name: editor
+    permissions:
+      - { resource: records, action: create }
+      - { resource: records, action: read }
+      - { resource: records, action: update }
+```
 
-- ⚡ Fast and lightweight
-- 🏠 Self-hosted and open-source
-- 🔒 Secure by design
-- 🐘 PostgreSQL-native
-- 📦 Simple to deploy and operate
-
-Cosmoria is designed for developers who want a backend engine without the complexity of large platform stacks.
-
----
-
-## Core Features
-
-### 🏢 Multi-tenancy
-
-Build SaaS applications with tenant isolation as a first-class concept.
-
-Cosmoria helps manage:
-
-- organizations
-- users
-- tenant boundaries
-- access control
-
----
-
-### ⚡ Dynamic APIs
-
-Generate backend APIs from your schemas.
-
-Spend less time writing repetitive CRUD infrastructure and more time building your product.
+That's it. Users sign up, get assigned to tenants, and start creating
+records. The API is live with Swagger UI at `/docs/`.
 
 ---
 
-### 🐘 PostgreSQL-first
+## Built for AI agents
 
-Your data stays in PostgreSQL.
+Cosmoria exposes everything via:
 
-Cosmoria builds on top of proven database primitives instead of hiding them.
+- **REST API** — 33 endpoints, documented via OpenAPI (Swagger UI at `/docs/`)
+- **Declarative config** — write YAML, the engine applies it idempotently
+- **MCP server** — `cosmoria mcp` lets Claude Code / Cursor interact directly via JSON-RPC
 
-Benefits:
-
-- SQL compatibility
-- existing PostgreSQL tooling
-- migrations
-- extensions
-- full data ownership
+An AI agent writes a config file, runs `cosmoria serve`, and the
+backend is ready in seconds.
 
 ---
 
-### 🔐 Authentication & RBAC
+## Features
 
-Built-in foundations for:
-
-- authentication
-- roles
-- permissions
-- secure access control
-
----
-
-### 📁 S3-compatible Storage
-
-Integrate object storage for:
-
-- files
-- uploads
-- assets
-- user content
-
-Compatible with S3-based providers.
+- Multi-tenancy with project + tenant scoping
+- Dynamic collections with JSONB schemas
+- RBAC with per-project roles and permissions
+- User and admin authentication (bcrypt + JWT)
+- Cursor-paginated records API
+- Auto-generated OpenAPI spec
+- TypeScript SDK (zero runtime deps)
+- CLI: `serve`, `dev` (hot reload), `migrate new/up/down`, `init`
+- Zero-config startup (sensible defaults, generated JWT secrets)
 
 ---
 
 ## Architecture
 
-Cosmoria keeps the stack simple:
-
 ```
 Your Application
         |
         v
-   Cosmoria Engine
+   Cosmoria Engine  ──── MCP (agents)
         |
-  ----------------
-  |              |
-PostgreSQL     S3 Storage
+   ------------
+   |          |
+PostgreSQL   S3 (planned)
 ```
 
-A focused backend runtime instead of a collection of independent services.
-
----
-
-## Built for AI-assisted development
-
-AI makes writing code faster.
-
-Cosmoria provides the production layer that AI-generated applications still need:
-
-- secure users
-- multi-tenant architecture
-- permissions
-- APIs
-- persistent data
-
-Let AI build your application.
-
-Let Cosmoria run it.
-
----
-
-## Use Cases
-
-Perfect for:
-
-- SaaS platforms
-- B2B applications
-- internal tools
-- AI-powered products
-- marketplaces
-- dashboards
-- business platforms
-
----
-
-## Philosophy
-
-Cosmoria is not a replacement for your application.
-
-It is the infrastructure layer that lets you build applications faster.
-
-Less boilerplate.
-
-More product.
+Single binary. Static linking. No runtime dependencies.
 
 ---
 
 ## Status
 
-🚧 Early development (v0)
-
-Cosmoria is actively evolving and is not production-ready yet.
-
-Contributions and feedback are welcome.
-
----
+🚧 v0 — actively evolving, not production-ready yet.
 
 ## License
 

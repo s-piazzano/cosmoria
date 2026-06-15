@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/s-piazzano/cosmoria/internal/app"
+	"github.com/s-piazzano/cosmoria/internal/configfile"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/db"
+	"github.com/s-piazzano/cosmoria/internal/mcp"
 )
 
 func usage() {
@@ -24,6 +26,7 @@ Usage:
   cosmoria migrate new <name> Create a new migration pair
   cosmoria migrate up         Run pending migrations
   cosmoria migrate down       Revert last migration
+  cosmoria mcp                Start MCP server (stdin/stdout JSON-RPC)
 `)
 }
 
@@ -60,6 +63,8 @@ func Run() {
 			usage()
 			os.Exit(1)
 		}
+	case "mcp":
+		runMCP()
 	default:
 		usage()
 		os.Exit(1)
@@ -78,6 +83,10 @@ func runServe() {
 		if err := db.Migrate(pool, "db/migrations"); err != nil {
 			log.Fatalf("migrations: %v", err)
 		}
+	}
+
+	if err := configfile.ApplyIfPresent(pool, cfg); err != nil {
+		log.Fatalf("config: %v", err)
 	}
 
 	if err := app.Serve(cfg, pool); err != nil {
@@ -200,6 +209,20 @@ func runMigrateUp() {
 		log.Fatalf("migrations: %v", err)
 	}
 	log.Println("migrations applied")
+}
+
+func runMCP() {
+	cfg := core.LoadConfig()
+	pool, err := db.NewPool(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	defer pool.Close()
+
+	server := mcp.NewServer(pool, cfg)
+	if err := server.Run(); err != nil {
+		log.Fatalf("mcp: %v", err)
+	}
 }
 
 func runMigrateDown() {
