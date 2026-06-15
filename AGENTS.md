@@ -312,6 +312,7 @@ Approved external dependencies:
 | `golang.org/x/crypto` | latest | bcrypt hashing |
 | `swaggo/http-swagger` | v1.3.4 | Serve Swagger UI |
 | `fsnotify` | v1.10.1 | File watcher for hot reload |
+| `gorilla/websocket` | v1.5.3 | WebSocket server for realtime events |
 | `yaml.v3` | v3.0.1 | YAML config file parsing |
 
 Dev-only tools:

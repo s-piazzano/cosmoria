@@ -26,10 +26,15 @@ func Auth(secret string) func(http.Handler) http.Handler {
 				}
 			}
 
-			if strings.HasPrefix(r.URL.Path, adminPrefix) {
-				next.ServeHTTP(w, r)
-				return
-			}
+	if strings.HasPrefix(r.URL.Path, adminPrefix) {
+		next.ServeHTTP(w, r)
+		return
+	}
+
+	if strings.HasSuffix(r.URL.Path, "/ws") {
+		next.ServeHTTP(w, r)
+		return
+	}
 
 			if strings.HasPrefix(r.URL.Path, "/docs") {
 				next.ServeHTTP(w, r)

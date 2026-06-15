@@ -6,11 +6,13 @@ import (
 	"strconv"
 
 	"github.com/s-piazzano/cosmoria/internal/auth"
+	"github.com/s-piazzano/cosmoria/internal/realtime"
 	"github.com/s-piazzano/cosmoria/internal/records"
 )
 
 type RecordsHandler struct {
-	Service *records.Service
+	Service   *records.Service
+	Publisher *realtime.Publisher
 }
 
 type createRecordRequest struct {
@@ -63,6 +65,19 @@ func (h *RecordsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+
+	if h.Publisher != nil {
+		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
+		h.Publisher.Publish(&realtime.Event{
+			ProjectID:  claims.ProjectID,
+			TenantID:   tenantID,
+			Resource:   "records",
+			Action:     "create",
+			ResourceID: record.ID,
+			Payload:    payload,
+		})
+	}
+
 	writeJSON(w, http.StatusCreated, record)
 }
 
@@ -177,8 +192,9 @@ func (h *RecordsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tenantID := r.PathValue("tid")
+	collectionID := r.PathValue("cid")
 	recordID := r.PathValue("rid")
-	if tenantID == "" || recordID == "" {
+	if tenantID == "" || collectionID == "" || recordID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -198,6 +214,19 @@ func (h *RecordsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+
+	if h.Publisher != nil {
+		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
+		h.Publisher.Publish(&realtime.Event{
+			ProjectID:  claims.ProjectID,
+			TenantID:   tenantID,
+			Resource:   "records",
+			Action:     "update",
+			ResourceID: record.ID,
+			Payload:    payload,
+		})
+	}
+
 	writeJSON(w, http.StatusOK, record)
 }
 
@@ -221,8 +250,9 @@ func (h *RecordsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tenantID := r.PathValue("tid")
+	collectionID := r.PathValue("cid")
 	recordID := r.PathValue("rid")
-	if tenantID == "" || recordID == "" {
+	if tenantID == "" || collectionID == "" || recordID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -231,5 +261,18 @@ func (h *RecordsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete_failed"})
 		return
 	}
+
+	if h.Publisher != nil {
+		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
+		h.Publisher.Publish(&realtime.Event{
+			ProjectID:  claims.ProjectID,
+			TenantID:   tenantID,
+			Resource:   "records",
+			Action:     "delete",
+			ResourceID: recordID,
+			Payload:    payload,
+		})
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

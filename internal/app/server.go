@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,6 +15,7 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/core"
 	_ "github.com/s-piazzano/cosmoria/docs"
 	"github.com/s-piazzano/cosmoria/internal/rbac"
+	"github.com/s-piazzano/cosmoria/internal/realtime"
 	"github.com/s-piazzano/cosmoria/internal/records"
 	"github.com/s-piazzano/cosmoria/internal/storage"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
@@ -36,12 +38,21 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 	collectionsService := collections.NewService(pool)
 	collectionsHandler := &handlers.CollectionsHandler{Service: collectionsService}
 
+	realtimeHub := realtime.NewHub(pool)
+	realtimeHub.Start(context.Background())
+
 	recordsService := records.NewService(pool, collectionsService)
-	recordsHandler := &handlers.RecordsHandler{Service: recordsService}
+	recordsHandler := &handlers.RecordsHandler{
+		Service:   recordsService,
+		Publisher: realtimeHub.Publisher(),
+	}
 
 	s3Client := storage.NewS3Client(cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3Region, cfg.S3UseSSL)
 	storageService := storage.NewService(pool, s3Client)
-	filesHandler := &handlers.FilesHandler{Service: storageService}
+	filesHandler := &handlers.FilesHandler{
+		Service:   storageService,
+		Publisher: realtimeHub.Publisher(),
+	}
 
 	auditLogger := audit.NewLogger(pool)
 	auditService := audit.NewService(pool)
@@ -83,6 +94,13 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.Get)))
 	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}/files/{fid}",
 		middleware.RequirePermission(rbacService, "files", "delete")(http.HandlerFunc(filesHandler.Delete)))
+
+	wsHandler := &handlers.WSHandler{
+		Hub:           realtimeHub,
+		JWTSecret:     cfg.JWTSecret,
+		TenantService: tenantService,
+	}
+	router.Handle("GET /api/projects/{pid}/ws", wsHandler)
 
 	router.HandleFunc("GET /api/admin/projects/{pid}/audit-logs", auditHandler.List)
 

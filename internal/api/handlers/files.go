@@ -6,11 +6,13 @@ import (
 	"strconv"
 
 	"github.com/s-piazzano/cosmoria/internal/auth"
+	"github.com/s-piazzano/cosmoria/internal/realtime"
 	"github.com/s-piazzano/cosmoria/internal/storage"
 )
 
 type FilesHandler struct {
-	Service *storage.Service
+	Service   *storage.Service
+	Publisher *realtime.Publisher
 }
 
 type fileResponse struct {
@@ -73,6 +75,16 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		slog.Error("file upload failed", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
+	}
+
+	if h.Publisher != nil {
+		h.Publisher.Publish(&realtime.Event{
+			ProjectID:  projectID,
+			TenantID:   tenantID,
+			Resource:   "files",
+			Action:     "create",
+			ResourceID: f.ID,
+		})
 	}
 
 	writeJSON(w, http.StatusCreated, toFileResponse(f))
@@ -170,6 +182,16 @@ func (h *FilesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.Service.Delete(r.Context(), projectID, tenantID, fileID); err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "file not found"})
 		return
+	}
+
+	if h.Publisher != nil {
+		h.Publisher.Publish(&realtime.Event{
+			ProjectID:  projectID,
+			TenantID:   tenantID,
+			Resource:   "files",
+			Action:     "delete",
+			ResourceID: fileID,
+		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)
