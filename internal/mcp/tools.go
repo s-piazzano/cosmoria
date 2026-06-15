@@ -192,6 +192,27 @@ func tools() []Tool {
 			),
 			Handler: handleUserAssignRole,
 		},
+		{
+			Name:        "cosmoria_file_list",
+			Description: "List files for a tenant with cursor-based pagination.",
+			InputSchema: objSchema(
+				jsonProp{"project_id", "string", "Project UUID", true},
+				jsonProp{"tenant_id", "string", "Tenant UUID", true},
+				jsonProp{"limit", "number", "Max results (1-100, default 50)", false},
+				jsonProp{"cursor", "string", "Pagination cursor from previous response", false},
+			),
+			Handler: handleFileList,
+		},
+		{
+			Name:        "cosmoria_audit_list",
+			Description: "List audit logs for a project with cursor-based pagination.",
+			InputSchema: objSchema(
+				jsonProp{"project_id", "string", "Project UUID", true},
+				jsonProp{"limit", "number", "Max results (1-100, default 50)", false},
+				jsonProp{"cursor", "string", "Pagination cursor from previous response", false},
+			),
+			Handler: handleAuditList,
+		},
 	}
 }
 
@@ -567,5 +588,58 @@ func handleUserAssignRole(ctx context.Context, args json.RawMessage, svc *Servic
 	}
 
 	out, _ := json.Marshal(upr)
+	return string(out), nil
+}
+
+func handleFileList(ctx context.Context, args json.RawMessage, svc *Services) (string, error) {
+	var p struct {
+		ProjectID string `json:"project_id"`
+		TenantID  string `json:"tenant_id"`
+		Limit     int    `json:"limit"`
+		Cursor    string `json:"cursor"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "", fmt.Errorf("invalid args: %w", err)
+	}
+
+	if p.Limit <= 0 {
+		p.Limit = 50
+	}
+
+	files, nextCursor, err := svc.Storage.List(ctx, p.ProjectID, p.TenantID, p.Cursor, p.Limit)
+	if err != nil {
+		return "", err
+	}
+
+	out, _ := json.Marshal(map[string]any{
+		"files":       files,
+		"next_cursor": nextCursor,
+	})
+	return string(out), nil
+}
+
+func handleAuditList(ctx context.Context, args json.RawMessage, svc *Services) (string, error) {
+	var p struct {
+		ProjectID string `json:"project_id"`
+		Limit     int    `json:"limit"`
+		Cursor    string `json:"cursor"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "", fmt.Errorf("invalid args: %w", err)
+	}
+
+	if p.Limit <= 0 {
+		p.Limit = 50
+	}
+
+	entries, nextCursor, err := svc.Audit.List(ctx, p.ProjectID, p.Cursor, p.Limit)
+	if err != nil {
+		return "", err
+	}
+
+	out, _ := json.Marshal(map[string]any{
+		"audit_logs":  entries,
+		"next_cursor": nextCursor,
+	})
 	return string(out), nil
 }

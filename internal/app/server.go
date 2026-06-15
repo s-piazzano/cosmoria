@@ -8,12 +8,14 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/api/handlers"
 	"github.com/s-piazzano/cosmoria/internal/api/middleware"
 	"github.com/s-piazzano/cosmoria/internal/adminauth"
+	"github.com/s-piazzano/cosmoria/internal/audit"
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/collections"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	_ "github.com/s-piazzano/cosmoria/docs"
 	"github.com/s-piazzano/cosmoria/internal/rbac"
 	"github.com/s-piazzano/cosmoria/internal/records"
+	"github.com/s-piazzano/cosmoria/internal/storage"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -36,6 +38,14 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 
 	recordsService := records.NewService(pool, collectionsService)
 	recordsHandler := &handlers.RecordsHandler{Service: recordsService}
+
+	s3Client := storage.NewS3Client(cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3Region, cfg.S3UseSSL)
+	storageService := storage.NewService(pool, s3Client)
+	filesHandler := &handlers.FilesHandler{Service: storageService}
+
+	auditLogger := audit.NewLogger(pool)
+	auditService := audit.NewService(pool)
+	auditHandler := &handlers.AuditHandler{Service: auditService}
 
 	router := api.NewRouter()
 	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
@@ -64,6 +74,17 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		middleware.RequirePermission(rbacService, "records", "update")(http.HandlerFunc(recordsHandler.Update)))
 	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}/collections/{cid}/records/{rid}",
 		middleware.RequirePermission(rbacService, "records", "delete")(http.HandlerFunc(recordsHandler.Delete)))
+
+	router.Handle("POST /api/projects/{pid}/tenants/{tid}/files",
+		middleware.RequirePermission(rbacService, "files", "create")(http.HandlerFunc(filesHandler.Upload)))
+	router.Handle("GET /api/projects/{pid}/tenants/{tid}/files",
+		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.List)))
+	router.Handle("GET /api/projects/{pid}/tenants/{tid}/files/{fid}",
+		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.Get)))
+	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}/files/{fid}",
+		middleware.RequirePermission(rbacService, "files", "delete")(http.HandlerFunc(filesHandler.Delete)))
+
+	router.HandleFunc("GET /api/admin/projects/{pid}/audit-logs", auditHandler.List)
 
 	router.HandleFunc("POST /api/admin/setup", adminHandler.Setup)
 	router.HandleFunc("POST /api/admin/login", adminHandler.Login)
@@ -101,6 +122,7 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		middleware.Logging(),
 		middleware.Auth(cfg.JWTSecret),
 		middleware.AdminAuth(cfg.AdminJWTSecret),
+		middleware.Audit(auditLogger),
 		middleware.Tenant(tenantService),
 	)
 

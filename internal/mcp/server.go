@@ -9,11 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/s-piazzano/cosmoria/internal/adminauth"
+	"github.com/s-piazzano/cosmoria/internal/audit"
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/collections"
 	"github.com/s-piazzano/cosmoria/internal/core"
 	"github.com/s-piazzano/cosmoria/internal/rbac"
 	"github.com/s-piazzano/cosmoria/internal/records"
+	"github.com/s-piazzano/cosmoria/internal/storage"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
 )
 
@@ -34,6 +36,7 @@ type Server struct {
 
 func NewServer(pool *pgxpool.Pool, cfg *core.Config) *Server {
 	collSvc := collections.NewService(pool)
+	s3Client := storage.NewS3Client(cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3Region, cfg.S3UseSSL)
 	return &Server{
 		pool:  pool,
 		cfg:   cfg,
@@ -45,6 +48,8 @@ func NewServer(pool *pgxpool.Pool, cfg *core.Config) *Server {
 			Collections: collSvc,
 			RBAC:        rbac.NewService(pool),
 			Records:     records.NewService(pool, collSvc),
+			Storage:     storage.NewService(pool, s3Client),
+			Audit:       audit.NewService(pool),
 		},
 	}
 }

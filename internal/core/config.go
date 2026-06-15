@@ -13,19 +13,32 @@ const defaultPort = 8080
 const defaultDatabaseURL = "postgres://localhost:5432/cosmoria?sslmode=disable"
 
 type Config struct {
-	Port            int
-	DatabaseURL     string
-	AutoMigrate     bool
-	JWTSecret       string
-	JWTExpiry       int64
-	AdminJWTSecret  string
-	AdminJWTExpiry  int64
+	Port           int
+	DatabaseURL    string
+	AutoMigrate    bool
+	JWTSecret      string
+	JWTExpiry      int64
+	AdminJWTSecret string
+	AdminJWTExpiry int64
+	S3Endpoint     string
+	S3AccessKey    string
+	S3SecretKey    string
+	S3Bucket       string
+	S3Region       string
+	S3UseSSL       bool
 }
 
 func generateSecret() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func LoadConfig() *Config {
@@ -76,5 +89,11 @@ func LoadConfig() *Config {
 		JWTExpiry:      jwtExpiry,
 		AdminJWTSecret: adminJwtSecret,
 		AdminJWTExpiry: adminJwtExpiry,
+		S3Endpoint:     getEnv("S3_ENDPOINT", "localhost:9000"),
+		S3AccessKey:    os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:    os.Getenv("S3_SECRET_KEY"),
+		S3Bucket:       getEnv("S3_BUCKET", "cosmoria"),
+		S3Region:       getEnv("S3_REGION", "us-east-1"),
+		S3UseSSL:       os.Getenv("S3_USE_SSL") == "true",
 	}
 }

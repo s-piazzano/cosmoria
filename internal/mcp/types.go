@@ -6,10 +6,12 @@ import (
 	"fmt"
 
 	"github.com/s-piazzano/cosmoria/internal/adminauth"
+	"github.com/s-piazzano/cosmoria/internal/audit"
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/collections"
 	"github.com/s-piazzano/cosmoria/internal/rbac"
 	"github.com/s-piazzano/cosmoria/internal/records"
+	"github.com/s-piazzano/cosmoria/internal/storage"
 	"github.com/s-piazzano/cosmoria/internal/tenant"
 )
 
@@ -46,6 +48,8 @@ type Services struct {
 	Collections *collections.Service
 	RBAC        *rbac.Service
 	Records     *records.Service
+	Storage     *storage.Service
+	Audit       *audit.Service
 }
 
 type CallToolParams struct {
