@@ -142,7 +142,7 @@ Your Application
         |
    ------------
    |          |
-PostgreSQL   S3 (planned)
+PostgreSQL   S3
 ```
 
 Single binary. Static linking. No runtime dependencies.
