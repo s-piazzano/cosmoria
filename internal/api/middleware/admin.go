@@ -15,6 +15,11 @@ var adminPublicRoutes = []string{
 func AdminAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, adminPrefix) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			for _, p := range adminPublicRoutes {
 				if r.URL.Path == p {
 					next.ServeHTTP(w, r)

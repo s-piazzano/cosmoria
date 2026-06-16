@@ -30,8 +30,10 @@ func NewService(pool *pgxpool.Pool) *Service {
 }
 
 func (s *Service) List(ctx context.Context, projectID string, cursor string, limit int) ([]AuditEntry, string, error) {
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 50
+	} else if limit > 100 {
+		limit = 100
 	}
 
 	query := `SELECT id, project_id, user_id, action, resource, resource_id, details, ip_address, created_at

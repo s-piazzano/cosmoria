@@ -17,6 +17,7 @@ cosmoria/
 ├── docs/
 ├── scripts/
 ├── docker/
+├── db/
 ├── go.mod
 └── README.md
 
@@ -58,16 +59,23 @@ internal/app/
 
 HTTP layer:
 - `router.go` — Router wrapping `http.ServeMux`
-- `handlers/` — Request handlers (health, auth, admin, tenants, rbac, collections, records)
+- `handlers/` — Request handlers (health, auth, admin, tenants, rbac, collections, records, files, ws, apikeys, audit)
 - `middleware/` — Middleware chain (logging, auth, admin auth, tenant, rbac)
 
 ### internal/auth/
 
-SaaS user authentication: signup, login, JWT, bcrypt.
+SaaS user authentication: signup, login, JWT, bcrypt, API keys (apikeys.go).
 
 ### internal/adminauth/
 
 Platform admin authentication: admin_users, admin_project_roles, separate JWT.
+
+### internal/configfile/
+
+Declarative YAML configuration:
+- `config.go` — Types matching YAML structure
+- `parser.go` — YAML file parser
+- `applier.go` — Applies config to DB (idempotent per name)
 
 ### internal/collections/
 
@@ -97,21 +105,33 @@ Role-Based Access Control: roles, permissions, user assignment, CheckAccess.
 
 ### internal/storage/
 
-File storage abstraction layer (planned):
-- S3-compatible integration
-- file upload/download
+File storage abstraction layer with two backends:
+- `backend.go` — `StorageBackend` interface + factory `NewBackend(cfg)` with auto-detection
+- `s3.go` — `S3Client` for S3-compatible storage (minio-compatible API)
+- `local.go` — `LocalBackend` writing to `<STORAGE_PATH>/<key>` (default `./data/files`)
+- `service.go` — Files CRUD (upload, get, list, delete) with DB metadata + backend operations
+- `uploader.go` — Multipart form parser for file uploads
 
 ### internal/audit/
 
-Audit logging system (planned):
-- security logs
-- user actions tracking
+Audit logging system:
+- `logger.go` — Async logger (`Log()` runs in goroutine, never blocks)
+- `service.go` — Cursor-paginated list endpoint for audit entries
 
 ### internal/realtime/
 
-Real-time system (planned):
-- WebSocket server
-- event broadcasting
+Real-time system with PostgreSQL `LISTEN`/`NOTIFY`:
+- `hub.go` — Client registry and event fan-out by project + tenant
+- `pubsub.go` — Publisher (pg_notify) + Subscriber (dedicated PG conn, dynamic channels)
+- `client.go` — Gorilla WebSocket per-connection: read/write pumps, ping/pong
+- `events.go` — JSON-serializable event + WebSocket message types
+
+### internal/mcp/
+
+MCP server (Model Context Protocol):
+- `server.go` — JSON-RPC 2.0 message loop over stdin/stdout
+- `tools.go` — Tool definitions and handler dispatch (~21 tools)
+- `types.go` — JSON-RPC request/response types and server state machine
 
 ---
 

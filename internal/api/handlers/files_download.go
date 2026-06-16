@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/s-piazzano/cosmoria/internal/auth"
 )
 
 // @Summary Download file content (local backend)
@@ -19,7 +21,13 @@ import (
 // @Security BearerAuth
 // @Router /api/projects/{pid}/tenants/{tid}/files/{fid}/download [get]
 func (h *FilesHandler) Download(w http.ResponseWriter, r *http.Request) {
-	projectID := r.PathValue("pid")
+	claims := auth.GetAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 	fileID := r.PathValue("fid")
 

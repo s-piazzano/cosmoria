@@ -14,28 +14,29 @@ cmd/cosmoria/
   cli.go           # CLI command dispatch (serve/dev/migrate/init)
   dev.go           # Hot-reload watcher (fsnotify)
 
-internal/
-  app/
-    server.go      # BuildHandler: wires services → handlers → routes → middleware
-  adminauth/       # Platform admin auth (admin_users + admin_project_roles)
-  api/
-    router.go      # Router wrapping http.ServeMux
-    handlers/      # HTTP handlers (health, auth, admin, tenants, rbac, collections, records)
-    middleware/     # Middleware chain (logging, auth, admin auth, tenant, rbac)
-  auth/            # SaaS user auth (signup, login, JWT)
-  collections/     # Dynamic schema engine (model, service, validation)
-  core/
-    config.go      # Config struct (env-based, with zero-config defaults)
-    app.go         # App {Config, Pool, Handler} — Run / Shutdown
-  db/
-    postgres.go    # NewPool: pgxpool with ping fail-fast
-    migrate.go     # Migrate/MigrateDown: golang-migrate
-  rbac/            # Role-Based Access Control (types, service)
-  records/         # Records CRUD with cursor pagination (model, service)
-  tenant/          # Multi-tenancy (context, service)
-  storage/         # S3-compatible file storage (planned)
-  audit/           # Audit logging (planned)
-  realtime/        # WebSocket realtime (planned)
+  internal/
+    app/
+      server.go      # BuildHandler: wires services → handlers → routes → middleware
+    adminauth/       # Platform admin auth (admin_users + admin_project_roles)
+    api/
+      router.go      # Router wrapping http.ServeMux
+      handlers/      # HTTP handlers (health, auth, admin, tenants, rbac, collections, records, files, ws, apikeys)
+      middleware/     # Middleware chain (logging, auth, admin auth, tenant, rbac)
+    auth/            # SaaS user auth (signup, login, JWT, API keys)
+    collections/     # Dynamic schema engine (model, service, validation)
+    core/
+      config.go      # Config struct (env-based, with zero-config defaults)
+      app.go         # App {Config, Pool, Handler} — Run / Shutdown
+    db/
+      postgres.go    # NewPool: pgxpool with ping fail-fast
+      migrate.go     # Migrate/MigrateDown: golang-migrate
+    rbac/            # Role-Based Access Control (types, service)
+    records/         # Records CRUD with cursor pagination (model, service)
+    tenant/          # Multi-tenancy (context, service)
+    storage/         # File storage (backend.go, s3.go, local.go, service.go, uploader.go)
+    audit/           # Audit logging (logger.go, service.go)
+    realtime/        # WebSocket realtime (hub.go, pubsub.go, client.go, events.go)
+    mcp/             # MCP server (server.go, tools.go, types.go)
 
 db/migrations/     # Timestamped .up.sql / .down.sql pairs
 docs/              # Markdown docs + generated OpenAPI spec
@@ -206,6 +207,7 @@ users (SaaS end-users)
 api_keys
   id UUID PK
   project_id UUID → projects(id)
+  user_id UUID → users(id)
   key_hash TEXT
   name TEXT
   created_at TIMESTAMPTZ
@@ -237,23 +239,26 @@ records
   data JSONB
   created_at TIMESTAMPTZ
 
-files (planned)
-  id UUID PK
-  project_id UUID → projects(id)
-  filename TEXT
-  storage_path TEXT
-  mime_type TEXT
-  size BIGINT
-  created_at TIMESTAMPTZ
-
-audit_logs (planned)
+files
   id UUID PK
   project_id UUID → projects(id)
   tenant_id UUID → tenants(id)
+  filename TEXT
+  s3_key TEXT
+  size BIGINT
+  mime_type TEXT
+  uploaded_by UUID → users(id)
+  created_at TIMESTAMPTZ
+
+audit_logs
+  id UUID PK
+  project_id UUID → projects(id)
   user_id UUID → users(id)
   action TEXT
   resource TEXT
-  details JSONB
+  resource_id UUID (nullable)
+  details JSONB (nullable)
+  ip_address TEXT
   created_at TIMESTAMPTZ
 ```
 
@@ -268,7 +273,7 @@ logging → user auth → admin auth → tenant → router
 | Middleware | Source | Effect |
 |------------|--------|--------|
 | Logging | `logging.go` | Logs method, path, status, duration via slog |
-| Auth (user) | `auth.go` | Validates JWT against `JWT_SECRET`, injects user claims. Skips `/api/admin/*`, public routes, and `/docs/`. |
+| Auth (user) | `auth.go` | Validates JWT against `JWT_SECRET` (or `X-Api-Key` header as fallback), injects user claims. Skips `/api/admin/*`, public routes, and `/docs/`. |
 | Admin Auth | `admin.go` | Validates JWT against `ADMIN_JWT_SECRET`, injects admin claims. Skips `/api/admin/setup` and `/api/admin/login`. |
 | Tenant | `tenant.go` | If `X-Tenant-ID` present, validates access via `user_tenants` table, injects tenant_id. Skips public routes and `/docs/`. |
 
@@ -295,9 +300,12 @@ logging → user auth → admin auth → tenant → router
 |-----|--------|------|
 | Health | — | Public |
 | Auth | `/api/auth/` | Public |
+| Profile | `/api/auth/me` | User JWT |
 | Admin | `/api/admin/` | Admin JWT (Bearer) |
 | Tenants | `/api/projects/{pid}/tenants` | User JWT + RBAC |
 | Records | `/api/projects/{pid}/tenants/{tid}/collections/{cid}/records` | User JWT + RBAC |
+| Files | `/api/projects/{pid}/tenants/{tid}/files` | User JWT + RBAC |
+| Realtime | `/api/projects/{pid}/ws` | User JWT (query param) |
 | Collections | `/api/admin/projects/{pid}/collections` | Admin JWT |
 | RBAC | `/api/admin/projects/{pid}/roles` | Admin JWT (super_admin only) |
 
@@ -314,6 +322,91 @@ logging → user auth → admin auth → tenant → router
 4. Admin can now create additional projects, assign admin roles, define RBAC roles
 5. SaaS users can sign up via `POST /api/auth/signup` with a valid `project_id`
 6. Users are assigned to tenants and roles
+
+---
+
+## Storage Backend
+
+Cosmoria auto-detects the storage backend at startup:
+
+- If `S3_ACCESS_KEY` is set and `Ping()` to the S3 endpoint succeeds → `S3Backend`
+- Otherwise → `LocalBackend` with a warning log
+
+### Interface
+
+```go
+type StorageBackend interface {
+    Upload(ctx, key, reader, size, contentType) error
+    DownloadURL(ctx, key, expiry) (string, error)
+    Delete(ctx, key) error
+    Ping(ctx) error
+    IsLocal() bool
+}
+```
+
+### Local Backend
+
+- Files stored at `<STORAGE_PATH>/<projectID>/<tenantID>/<uuid>-<filename>`
+- Download via `GET /.../files/{fid}/download` API endpoint (streams bytes)
+- Path traversal protection via `isPathSafe()` using `filepath.Abs` + `filepath.Rel`
+
+### S3 Backend
+
+- Delegates to `S3Client` (minio-compatible, any S3-compatible API)
+- `DownloadURL` generates a presigned URL with configurable expiry
+- `Ping` performs HEAD bucket request
+
+### File Lifecycle
+
+1. Upload: store bytes → insert row in `files` table → publish realtime event
+2. Get: query metadata → return presigned URL (S3) or API download URL (local)
+3. Delete: remove from storage backend → delete DB row (transactional) → publish realtime event
+
+---
+
+## Realtime (WebSocket)
+
+Cosmoria provides realtime event broadcasting via WebSocket, backed by PostgreSQL `LISTEN`/`NOTIFY`.
+
+### Architecture
+
+```
+Event Source → Publisher (pg_notify) → PostgreSQL → Subscriber (LISTEN) → Hub → Client WebSocket
+```
+
+### Components
+
+| Component | Role |
+|-----------|------|
+| `Event` | JSON payload with project_id, tenant_id, resource, action, resource_id, payload, timestamp |
+| `Publisher` | Calls `SELECT pg_notify('cosm_{pid}', payload)` in a goroutine |
+| `Subscriber` | Dedicated PG connection, dynamically LISTEN/UNLISTEN per-project channels |
+| `Hub` | Manages client registry, fan-out events to matching tenants |
+| `Client` | Gorilla WebSocket per connection, read/write pumps with ping/pong (30s interval) |
+
+### WebSocket Endpoint
+
+```
+GET /api/projects/{pid}/ws?token=<JWT>[&tenant_id=<tid>]
+```
+
+- Auth via `?token=` query param (validates JWT, checks project_id)
+- Optional `?tenant_id=` filters events to a specific tenant
+- Supports `{"type": "ping"}` → replies `{"type": "pong"}`
+
+### Channel Management
+
+- Per-project channels `cosm_{projectID}` added/removed dynamically
+- First client of a project triggers `LISTEN`; last disconnect triggers `UNLISTEN`
+
+---
+
+## Audit Logging
+
+- **Async**: `Logger.Log()` runs in a goroutine — never blocks the request
+- **Table**: `audit_logs` tracks project_id, user_id, action, resource, resource_id, details (JSONB), ip_address, created_at
+- **List**: `GET /api/admin/projects/{pid}/audit-logs` with cursor-based pagination (max 100, default 50)
+- **Reliability**: Log errors to slog; do NOT fail the request if insert fails
 
 ---
 
@@ -338,10 +431,12 @@ logging → user auth → admin auth → tenant → router
 | `swaggo/swag` | OpenAPI spec generation (dev tool) |
 | `swaggo/http-swagger` | Runtime Swagger UI |
 | `fsnotify` | File system watcher (hot reload) |
+| `gorilla/websocket` | WebSocket server for realtime events |
+| `gopkg.in/yaml.v3` | Declarative config file parsing |
 
 ### Dev / SDK
 
 | Tool | Purpose |
 |------|---------|
 | `swag` CLI | Generate OpenAPI spec from Go annotations |
-| `openapi-typescript` | Generate TypeScript types from OpenAPI spec |
+| `openapi-typescript` v5 | Generate TypeScript types from OpenAPI spec (v5 required for Swagger 2.0 compat) |

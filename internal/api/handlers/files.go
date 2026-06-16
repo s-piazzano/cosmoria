@@ -61,7 +61,7 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := r.PathValue("pid")
+	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 
 	info, err := storage.ParseUpload(r, 0)
@@ -104,7 +104,13 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /api/projects/{pid}/tenants/{tid}/files [get]
 func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
-	projectID := r.PathValue("pid")
+	claims := auth.GetAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 	cursor := r.URL.Query().Get("cursor")
 	limit := 50
@@ -146,7 +152,13 @@ func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /api/projects/{pid}/tenants/{tid}/files/{fid} [get]
 func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
-	projectID := r.PathValue("pid")
+	claims := auth.GetAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 	fileID := r.PathValue("fid")
 
@@ -175,7 +187,13 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Router /api/projects/{pid}/tenants/{tid}/files/{fid} [delete]
 func (h *FilesHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	projectID := r.PathValue("pid")
+	claims := auth.GetAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 	fileID := r.PathValue("fid")
 

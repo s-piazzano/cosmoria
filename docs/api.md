@@ -28,6 +28,23 @@ OpenAPI spec available at `/openapi.json` and Swagger UI at `/docs/`.
 |--------|------|-------------|
 | POST | `/api/admin/projects` | Create a new project |
 | GET | `/api/admin/projects` | List accessible projects |
+| GET | `/api/admin/projects/{pid}` | Get a single project |
+| PUT | `/api/admin/projects/{pid}` | Update project name or JWT expiry |
+| DELETE | `/api/admin/projects/{pid}` | Delete project and all data (super_admin only) |
+
+### API Keys (super_admin only)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/projects/{pid}/api-keys` | Create API key for a user |
+| GET | `/api/admin/projects/{pid}/api-keys` | List API keys |
+| DELETE | `/api/admin/projects/{pid}/api-keys/{kid}` | Revoke an API key |
+
+### Audit Logs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/projects/{pid}/audit-logs` | List audit entries (cursor pagination) |
 
 ### Admin Roles (super_admin only)
 
@@ -99,3 +116,42 @@ Response format:
   "next_cursor": "uuid"  // omitted if no more pages
 }
 ```
+
+### User Profile
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/auth/me` | Get authenticated user's profile |
+| PUT | `/api/auth/me` | Update email and/or password (requires `current_password`) |
+
+### Files (RBAC: `files` resource)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/projects/{pid}/tenants/{tid}/files` | Upload a file (multipart form) |
+| GET | `/api/projects/{pid}/tenants/{tid}/files` | List files (cursor pagination) |
+| GET | `/api/projects/{pid}/tenants/{tid}/files/{fid}` | Get file metadata + download URL |
+| DELETE | `/api/projects/{pid}/tenants/{tid}/files/{fid}` | Delete a file |
+| GET | `/api/projects/{pid}/tenants/{tid}/files/{fid}/download` | Stream file content (local backend only) |
+
+**Query parameters for List files:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cursor` | string | — | CreatedAt cursor for pagination |
+| `limit` | int | 50 | Page size (max 100) |
+
+### Realtime
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/projects/{pid}/ws` | WebSocket (query param `token=JWT`, optional `tenant_id`) |
+
+The WebSocket endpoint expects authentication via `?token=` query parameter (JWT). If `?tenant_id=` is provided, only events for that tenant are received; otherwise all project events are broadcast. Supports `{"type": "ping"}` → `{"type": "pong"}` keep-alive.
+
+---
+
+## Authentication Notes
+
+- User auth: `Authorization: Bearer <JWT>` or `X-Api-Key: ck_<64hex>` header
+- Admin auth: `Authorization: Bearer <admin JWT>` only (no API key support)
+- API keys are attached to a user and inherit that user's RBAC role

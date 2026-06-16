@@ -62,6 +62,19 @@ No mixing responsibilities.
 - Passwords must be hashed using secure algorithms (e.g., bcrypt or argon2)
 - Tokens must have expiration
 
+## API Key Authentication
+
+Cosmoria supports API keys as an alternative to JWT for SaaS user endpoints.
+
+- API keys are attached to a `user_id` — they inherit the user's RBAC role
+- Sent via header `X-Api-Key` (separate from `Authorization: Bearer`)
+- Format: `ck_<64 hex chars>` (e.g., `ck_a1b2c3d4e5f6...`)
+- Stored as SHA-256 hash (never stored in plaintext)
+- Plaintext returned only once at creation time
+- Created/managed by super_admin via `/api/admin/projects/{pid}/api-keys`
+- Cannot bypass RBAC — API keys are subject to `CheckAccess(userID, projectID, resource, action)` like JWT
+- Auth middleware checks `Authorization: Bearer` (JWT) first, then falls back to `X-Api-Key`
+
 ---
 
 ## Authorization
@@ -153,6 +166,127 @@ Rules:
 
 ---
 
+# 💾 Storage Backend Rules
+
+Cosmoria supports two storage backends: S3-compatible and local filesystem.
+
+## Auto-Detection
+
+- If `S3_ACCESS_KEY` is set AND `Ping()` succeeds → `S3Backend`
+- Otherwise → `LocalBackend` (logs a warning on S3 failure)
+- No explicit config flag — auto-detection reduces setup steps for local dev
+
+## Backend Interface (`StorageBackend`)
+
+| Method | Purpose |
+|--------|---------|
+| `Upload(ctx, key, reader, size, contentType)` | Store a file |
+| `DownloadURL(ctx, key, expiry)` | Return presigned URL (S3) or metadata path (local) |
+| `Delete(ctx, key)` | Remove stored file |
+| `Ping(ctx)` | Health check (HEAD bucket for S3, always OK for local) |
+| `IsLocal()` | Returns `true` for local, `false` for S3 |
+
+## Local Backend (`LocalBackend`)
+
+- Writes files to `<STORAGE_PATH>/<key>` (default `./data/files`)
+- `DownloadURL` returns the key itself; the service constructs the API download URL
+- File download endpoint `GET /.../files/{fid}/download` streams bytes (auth + RBAC enforced)
+- Path traversal protection via `isPathSafe()` (uses `filepath.Abs` + `filepath.Rel`)
+
+## S3 Backend (`S3Backend`)
+
+- Delegates to `S3Client` (minio-compatible, supports any S3-compatible API)
+- `DownloadURL` generates a presigned URL with configurable expiry
+- `Ping` performs a HEAD bucket request
+
+## Files Service (`storage.Service`)
+
+- Files are stored with key format: `{projectID}/{tenantID}/{fileID}-{sanitizedFilename}`
+- Metadata (id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by) stored in `files` table
+- Upload generates a unique suffix + sanitizes filenames
+- Delete removes from both storage backend AND database (transactional)
+
+---
+
+# 🔌 WebSocket Realtime Rules
+
+Cosmoria provides realtime event broadcasting via WebSocket backed by PostgreSQL `LISTEN`/`NOTIFY`.
+
+## Architecture
+
+```
+Event source → Publisher (pg_notify) → PostgreSQL → Subscriber (LISTEN) → Hub → Client WebSocket
+```
+
+| Component | File | Role |
+|-----------|------|------|
+| `Event` | `events.go` | JSON-serializable payload: id, project_id, tenant_id, resource, action, resource_id, payload, timestamp |
+| `Publisher` | `pubsub.go` | Calls `SELECT pg_notify(channel, payload)` in a goroutine |
+| `Subscriber` | `pubsub.go` | Dedicated PG connection, dynamically LISTEN/UNLISTEN per-project channels |
+| `Hub` | `hub.go` | Manages clients, fan-out events to matching tenants |
+| `Client` | `client.go` | Gorilla WebSocket, read/write pumps, ping/pong |
+
+## Channels
+
+- Channel name format: `cosm_{projectId}`
+- Dynamic LISTEN/UNLISTEN — channels are added/removed when the first/last client per project connects/disconnects
+- `Publisher.Publish()` is called from file upload/delete handlers (future: other resources)
+
+## WebSocket Endpoint
+
+- `GET /api/projects/{pid}/ws?token=<JWT>[&tenant_id=<tid>]`
+- Auth via query param `token=` (validates JWT, checks project_id match)
+- Optional `tenant_id` — validates user has access via `user_tenants` table; if omitted, receives all project events
+- Upgrades to WebSocket, registers client with Hub
+
+## Client Lifecycle
+
+- `writePump`: writes events from `send` channel to WebSocket connection; sends ping every 30s
+- `readPump`: reads pong responses; handles incoming "ping" → replies "pong"; closes on error
+- On disconnect: unregisters from Hub (removes LISTEN if last client)
+- Send buffer: 64 events, drops oldest if full (with warning log)
+
+## Integration
+
+- Handlers publish events after create/delete operations (e.g., files)
+- Current resources with events: `files` (create, delete)
+- No new dependency for PostgreSQL pub/sub (stdlib pgx only)
+- WebSocket dependency: `gorilla/websocket` (approved)
+
+---
+
+# 📋 Audit Logging Rules
+
+Cosmoria records user actions for security and compliance.
+
+## Logger
+
+- `audit.Logger.Log(ctx, projectID, userID, action, resource, resourceID, details, ipAddress)`
+- Runs asynchronously in a goroutine — never blocks the request
+- Logs errors to slog if insert fails (does NOT fail the request)
+
+## Table (`audit_logs`)
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | UUID PK | Auto-generated |
+| `project_id` | UUID → projects | Scoping |
+| `user_id` | UUID → users | SaaS user who performed the action |
+| `action` | TEXT | e.g. "create", "delete", "update", "login" |
+| `resource` | TEXT | e.g. "tenants", "records", "files" |
+| `resource_id` | UUID (nullable) | ID of the affected resource |
+| `details` | JSONB (nullable) | Arbitrary context |
+| `ip_address` | TEXT | Client IP from request |
+| `created_at` | TIMESTAMPTZ | Auto-set |
+
+## List Endpoint
+
+- `GET /api/admin/projects/{pid}/audit-logs` (admin auth)
+- Cursor-based pagination (by `created_at`)
+- Max 100 per page, default 50
+
+---
+
 # 📖 OpenAPI / Swagger Rules
 
 Cosmoria generates an OpenAPI spec from Go handler annotations using `swaggo/swag`.
@@ -233,7 +367,7 @@ Rules:
 2. Client sends `notifications/initialized` → Server enters Ready state
 3. Server responds to `tools/list` and `tools/call`
 
-## Tools exposed (~19 tools)
+## Tools exposed (~21 tools)
 
 | Group | Tools |
 |-------|-------|
@@ -244,6 +378,8 @@ Rules:
 | RBAC | `cosmoria_role_create`, `cosmoria_role_list`, `cosmoria_role_set_permission`, `cosmoria_role_list_permissions` |
 | Records | `cosmoria_record_create`, `cosmoria_record_list`, `cosmoria_record_get`, `cosmoria_record_update`, `cosmoria_record_delete` |
 | Users | `cosmoria_user_assign_role` |
+| Files | `cosmoria_file_list` |
+| Audit | `cosmoria_audit_list` |
 
 ## Implementation
 
@@ -267,6 +403,8 @@ The TypeScript SDK lives at `sdk/typescript/`.
   3. Run `./scripts/generate-sdk.sh`
   4. Update `client.ts` with the new method
 - Auth tokens are passed via `client.setToken(token)` between requests
+- WebSocket connection: `client.connectWebSocket(projectId, tenantId?)` returns a `WebSocket` for realtime events
+- File operations: `client.files.upload(pid, tid, file)`, `client.files.list(pid, tid, cursor?, limit?)`, `client.files.get(pid, tid, fid)`, `client.files.delete(pid, tid, fid)` with typed responses `FileResponse` and `PaginatedFiles`
 
 ---
 

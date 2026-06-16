@@ -22,7 +22,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
+func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	authService := auth.NewService(pool, cfg)
 	authHandler := &handlers.AuthHandler{Service: authService}
 
@@ -158,11 +158,15 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		middleware.Tenant(tenantService),
 	)
 
-	return mw
+	shutdown := func() {
+		realtimeHub.Stop()
+	}
+
+	return mw, shutdown
 }
 
 func Serve(cfg *core.Config, pool *pgxpool.Pool) error {
-	handler := BuildHandler(cfg, pool)
+	handler, _ := BuildHandler(cfg, pool)
 	app := core.NewApp(cfg, pool, handler)
 	return app.Run()
 }

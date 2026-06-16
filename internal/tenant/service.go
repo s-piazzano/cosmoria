@@ -69,12 +69,15 @@ func (s *Service) GetTenant(ctx context.Context, tenantID, projectID string) (*T
 }
 
 func (s *Service) DeleteTenant(ctx context.Context, tenantID, projectID string) error {
-	_, err := s.pool.Exec(ctx,
+	ct, err := s.pool.Exec(ctx,
 		`DELETE FROM tenants WHERE id = $1 AND project_id = $2`,
 		tenantID, projectID,
 	)
 	if err != nil {
 		return fmt.Errorf("tenant: delete: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("tenant: delete: not found")
 	}
 	return nil
 }
