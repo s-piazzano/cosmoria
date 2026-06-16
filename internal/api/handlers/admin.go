@@ -101,19 +101,24 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // @Summary Create a project
 // @Security AdminBearerAuth
-// @Description Create a new project as a platform admin.
+// @Description Create a new project as a platform admin. super_admin only.
 // @Tags Admin
 // @Accept json
 // @Produce json
 // @Param body body createProjectRequest true "Project name"
 // @Success 201 {object} adminauth.Project
 // @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/admin/projects [post]
 func (h *AdminHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
 	if claims == nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if claims.Role != "super_admin" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
 		return
 	}
 
@@ -171,6 +176,7 @@ func (h *AdminHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 // @Param pid path string true "Project ID"
 // @Success 200 {object} adminauth.Project
 // @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /api/admin/projects/{pid} [get]
 func (h *AdminHandler) GetProject(w http.ResponseWriter, r *http.Request) {
@@ -184,6 +190,14 @@ func (h *AdminHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 	if projectID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
 		return
+	}
+
+	if claims.Role != "super_admin" {
+		ok, err := h.Service.HasProjectAccess(r.Context(), claims.AdminUserID, projectID)
+		if err != nil || !ok {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+			return
+		}
 	}
 
 	project, err := h.Service.GetProject(r.Context(), projectID)
@@ -206,6 +220,7 @@ func (h *AdminHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} adminauth.Project
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Router /api/admin/projects/{pid} [put]
 func (h *AdminHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	claims := adminauth.GetAdminAuth(r.Context())
@@ -218,6 +233,14 @@ func (h *AdminHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if projectID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
 		return
+	}
+
+	if claims.Role != "super_admin" {
+		ok, err := h.Service.HasProjectAccess(r.Context(), claims.AdminUserID, projectID)
+		if err != nil || !ok {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+			return
+		}
 	}
 
 	var req updateProjectRequest

@@ -137,7 +137,7 @@ func TestAuthMiddleware_ValidApiKey(t *testing.T) {
 	project := testhelper.CreateTestProject(t, pool, admin.ID)
 	user := testhelper.CreateTestUser(t, pool)
 
-	result, err := apiKeySvc.Create(context.Background(), project.ID, user.ID, "test-key")
+	result, err := apiKeySvc.Create(context.Background(), project.ID, user.ID, "test-key", nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest("GET", "/api/projects/"+project.ID+"/tenants", nil)

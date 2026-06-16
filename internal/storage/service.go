@@ -22,12 +22,17 @@ type File struct {
 }
 
 type Service struct {
-	pool    *pgxpool.Pool
-	backend StorageBackend
+	pool          *pgxpool.Pool
+	backend       StorageBackend
+	maxUploadSize int64
 }
 
-func NewService(pool *pgxpool.Pool, backend StorageBackend) *Service {
-	return &Service{pool: pool, backend: backend}
+func NewService(pool *pgxpool.Pool, backend StorageBackend, maxUploadSize int64) *Service {
+	return &Service{pool: pool, backend: backend, maxUploadSize: maxUploadSize}
+}
+
+func (s *Service) MaxUploadSize() int64 {
+	return s.maxUploadSize
 }
 
 func (s *Service) StoragePath() string {

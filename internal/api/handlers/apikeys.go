@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/adminauth"
@@ -13,8 +14,9 @@ type ApiKeysHandler struct {
 }
 
 type createApiKeyRequest struct {
-	UserID string `json:"user_id"`
-	Name   string `json:"name"`
+	UserID    string     `json:"user_id"`
+	Name      string     `json:"name"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 // @Summary Create API key
@@ -57,7 +59,7 @@ func (h *ApiKeysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.Service.Create(r.Context(), projectID, req.UserID, req.Name)
+	result, err := h.Service.Create(r.Context(), projectID, req.UserID, req.Name, req.ExpiresAt)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

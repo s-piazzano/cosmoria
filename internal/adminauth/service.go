@@ -44,8 +44,14 @@ func NewService(pool *pgxpool.Pool, cfg *core.Config) *Service {
 }
 
 func (s *Service) Setup(ctx context.Context, email, password, projectName string) (*AuthResult, *Project, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("adminauth: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	var count int
-	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count)
+	err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count)
 	if err != nil {
 		return nil, nil, fmt.Errorf("adminauth: check count: %w", err)
 	}
@@ -59,7 +65,7 @@ func (s *Service) Setup(ctx context.Context, email, password, projectName string
 	}
 
 	var adminID string
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO admin_users (email, password_hash, role) VALUES ($1, $2, 'super_admin') RETURNING id`,
 		email, string(hash),
 	).Scan(&adminID)
@@ -68,12 +74,16 @@ func (s *Service) Setup(ctx context.Context, email, password, projectName string
 	}
 
 	var project Project
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO projects (name, admin_owner_id) VALUES ($1, $2) RETURNING id, name, admin_owner_id, created_at`,
 		projectName, adminID,
 	).Scan(&project.ID, &project.Name, &project.AdminOwnerID, &project.CreatedAt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("adminauth: create project: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("adminauth: commit tx: %w", err)
 	}
 
 	token, err := GenerateToken(AdminClaims{
@@ -221,6 +231,18 @@ func (s *Service) ListRoles(ctx context.Context, projectID string) ([]AdminProje
 		roles = append(roles, r)
 	}
 	return roles, nil
+}
+
+func (s *Service) HasProjectAccess(ctx context.Context, adminUserID, projectID string) (bool, error) {
+	var count int
+	err := s.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM admin_project_roles WHERE admin_user_id = $1 AND project_id = $2`,
+		adminUserID, projectID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("adminauth: check project access: %w", err)
+	}
+	return count > 0, nil
 }
 
 func (s *Service) GetProject(ctx context.Context, id string) (*Project, error) {

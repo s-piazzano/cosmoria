@@ -48,7 +48,7 @@ func NewServer(pool *pgxpool.Pool, cfg *core.Config) *Server {
 			Collections: collSvc,
 			RBAC:        rbac.NewService(pool),
 			Records:     records.NewService(pool, collSvc),
-			Storage:     storage.NewService(pool, storageBackend),
+			Storage:     storage.NewService(pool, storageBackend, cfg.MaxUploadSize),
 			Audit:       audit.NewService(pool),
 		},
 	}

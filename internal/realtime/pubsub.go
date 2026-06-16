@@ -15,6 +15,25 @@ func channelName(projectID string) string {
 	return channelPrefix + projectID
 }
 
+func isValidUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, c := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if c != '-' {
+				return false
+			}
+		default:
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 type Publisher struct {
 	pool *pgxpool.Pool
 }
@@ -24,6 +43,10 @@ func NewPublisher(pool *pgxpool.Pool) *Publisher {
 }
 
 func (p *Publisher) Publish(event *Event) {
+	if !isValidUUID(event.ProjectID) {
+		slog.Warn("realtime: invalid project_id in event, skipping publish", "project_id", event.ProjectID)
+		return
+	}
 	go func() {
 		data, err := json.Marshal(event)
 		if err != nil {
@@ -101,6 +124,10 @@ func (s *Subscriber) listenLoop(ctx context.Context) {
 		for {
 			select {
 			case ch := <-s.addCh:
+				if !isValidUUID(ch) {
+					slog.Warn("realtime: invalid project_id for LISTEN, skipping", "project_id", ch)
+					continue
+				}
 				name := channelName(ch)
 				if !active[name] {
 					_, err := pgxConn.Exec(ctx, "LISTEN "+name)
@@ -121,6 +148,10 @@ func (s *Subscriber) listenLoop(ctx context.Context) {
 		for {
 			select {
 			case ch := <-s.removeCh:
+				if !isValidUUID(ch) {
+					slog.Warn("realtime: invalid project_id for UNLISTEN, skipping", "project_id", ch)
+					continue
+				}
 				name := channelName(ch)
 				if active[name] {
 					_, err := pgxConn.Exec(ctx, "UNLISTEN "+name)

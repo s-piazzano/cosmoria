@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const defaultPort = 8080
@@ -13,20 +14,22 @@ const defaultPort = 8080
 const defaultDatabaseURL = "postgres://localhost:5432/cosmoria?sslmode=disable"
 
 type Config struct {
-	Port           int
-	DatabaseURL    string
-	AutoMigrate    bool
-	JWTSecret      string
-	JWTExpiry      int64
-	AdminJWTSecret string
-	AdminJWTExpiry int64
-	S3Endpoint     string
-	S3AccessKey    string
-	S3SecretKey    string
-	S3Bucket       string
-	S3Region       string
-	S3UseSSL       bool
-	StoragePath    string
+	Port             int
+	DatabaseURL      string
+	AutoMigrate      bool
+	JWTSecret        string
+	JWTExpiry        int64
+	AdminJWTSecret   string
+	AdminJWTExpiry   int64
+	S3Endpoint       string
+	S3AccessKey      string
+	S3SecretKey      string
+	S3Bucket         string
+	S3Region         string
+	S3UseSSL         bool
+	StoragePath      string
+	WSAllowedOrigins []string
+	MaxUploadSize    int64
 }
 
 func generateSecret() string {
@@ -82,20 +85,48 @@ func LoadConfig() *Config {
 		}
 	}
 
+	var wsAllowedOrigins []string
+	if v := os.Getenv("WS_ALLOWED_ORIGINS"); v != "" {
+		wsAllowedOrigins = strings.Split(v, ",")
+		for i := range wsAllowedOrigins {
+			wsAllowedOrigins[i] = strings.TrimSpace(wsAllowedOrigins[i])
+		}
+	}
+
+	maxUploadSize := int64(100 * 1024 * 1024) // 100MB default
+	if v := os.Getenv("MAX_UPLOAD_SIZE"); v != "" {
+		if s, err := strconv.ParseInt(v, 10, 64); err == nil && s > 0 {
+			maxUploadSize = s
+		}
+	}
+
+	if os.Getenv("ENV") == "production" {
+		if jwtSecret == os.Getenv("JWT_SECRET") && jwtSecret == "" {
+			slog.Error("JWT_SECRET must be set in production")
+			os.Exit(1)
+		}
+		if adminJwtSecret == os.Getenv("ADMIN_JWT_SECRET") && adminJwtSecret == "" {
+			slog.Error("ADMIN_JWT_SECRET must be set in production")
+			os.Exit(1)
+		}
+	}
+
 	return &Config{
-		Port:           port,
-		DatabaseURL:    databaseURL,
-		AutoMigrate:    os.Getenv("AUTO_MIGRATE") != "false",
-		JWTSecret:      jwtSecret,
-		JWTExpiry:      jwtExpiry,
-		AdminJWTSecret: adminJwtSecret,
-		AdminJWTExpiry: adminJwtExpiry,
-		S3Endpoint:     getEnv("S3_ENDPOINT", "localhost:9000"),
-		S3AccessKey:    os.Getenv("S3_ACCESS_KEY"),
-		S3SecretKey:    os.Getenv("S3_SECRET_KEY"),
-		S3Bucket:       getEnv("S3_BUCKET", "cosmoria"),
-		S3Region:       getEnv("S3_REGION", "us-east-1"),
-		S3UseSSL:       os.Getenv("S3_USE_SSL") == "true",
-		StoragePath:    getEnv("STORAGE_PATH", "./data/files"),
+		Port:             port,
+		DatabaseURL:      databaseURL,
+		AutoMigrate:      os.Getenv("AUTO_MIGRATE") != "false",
+		JWTSecret:        jwtSecret,
+		JWTExpiry:        jwtExpiry,
+		AdminJWTSecret:   adminJwtSecret,
+		AdminJWTExpiry:   adminJwtExpiry,
+		S3Endpoint:       getEnv("S3_ENDPOINT", "localhost:9000"),
+		S3AccessKey:      os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
+		S3Bucket:         getEnv("S3_BUCKET", "cosmoria"),
+		S3Region:         getEnv("S3_REGION", "us-east-1"),
+		S3UseSSL:         os.Getenv("S3_USE_SSL") == "true",
+		StoragePath:      getEnv("STORAGE_PATH", "./data/files"),
+		WSAllowedOrigins: wsAllowedOrigins,
+		MaxUploadSize:    maxUploadSize,
 	}
 }

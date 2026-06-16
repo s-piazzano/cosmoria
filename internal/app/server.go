@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/s-piazzano/cosmoria/internal/api"
@@ -51,7 +52,7 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	}
 
 	storageBackend := storage.NewBackend(cfg)
-	storageService := storage.NewService(pool, storageBackend)
+	storageService := storage.NewService(pool, storageBackend, cfg.MaxUploadSize)
 	filesHandler := &handlers.FilesHandler{
 		Service:   storageService,
 		Publisher: realtimeHub.Publisher(),
@@ -62,8 +63,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	auditHandler := &handlers.AuditHandler{Service: auditService}
 
 	router := api.NewRouter()
-	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
-	router.HandleFunc("POST /api/auth/login", authHandler.Login)
+	router.Handle("POST /api/auth/signup", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(authHandler.Signup)))
+	router.Handle("POST /api/auth/login", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(authHandler.Login)))
 	router.HandleFunc("GET /api/auth/me", authHandler.Me)
 	router.HandleFunc("PUT /api/auth/me", authHandler.UpdateMe)
 
@@ -92,7 +93,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 		middleware.RequirePermission(rbacService, "records", "delete")(http.HandlerFunc(recordsHandler.Delete)))
 
 	router.Handle("POST /api/projects/{pid}/tenants/{tid}/files",
-		middleware.RequirePermission(rbacService, "files", "create")(http.HandlerFunc(filesHandler.Upload)))
+		middleware.RateLimit(30, time.Minute)(
+			middleware.RequirePermission(rbacService, "files", "create")(http.HandlerFunc(filesHandler.Upload))))
 	router.Handle("GET /api/projects/{pid}/tenants/{tid}/files",
 		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.List)))
 	router.Handle("GET /api/projects/{pid}/tenants/{tid}/files/{fid}",
@@ -103,16 +105,17 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.Download)))
 
 	wsHandler := &handlers.WSHandler{
-		Hub:           realtimeHub,
-		JWTSecret:     cfg.JWTSecret,
-		TenantService: tenantService,
+		Hub:            realtimeHub,
+		JWTSecret:      cfg.JWTSecret,
+		TenantService:  tenantService,
+		AllowedOrigins: cfg.WSAllowedOrigins,
 	}
 	router.Handle("GET /api/projects/{pid}/ws", wsHandler)
 
 	router.HandleFunc("GET /api/admin/projects/{pid}/audit-logs", auditHandler.List)
 
-	router.HandleFunc("POST /api/admin/setup", adminHandler.Setup)
-	router.HandleFunc("POST /api/admin/login", adminHandler.Login)
+	router.Handle("POST /api/admin/setup", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Setup)))
+	router.Handle("POST /api/admin/login", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Login)))
 	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
 	router.HandleFunc("GET /api/admin/projects", adminHandler.ListProjects)
 	router.HandleFunc("GET /api/admin/projects/{pid}", adminHandler.GetProject)

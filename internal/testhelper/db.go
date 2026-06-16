@@ -89,23 +89,13 @@ func NewTestDB(t testing.TB) *pgxpool.Pool {
 
 func truncateAll(t testing.TB, pool *pgxpool.Pool) {
 	t.Helper()
-	tables := []string{
-		"audit_logs",
-		"user_project_roles",
-		"project_role_permissions",
-		"project_roles",
-		"user_tenants",
-		"records",
-		"files",
-		"collections",
-		"tenants",
-		"api_keys",
-		"users",
-		"admin_project_roles",
-		"projects",
-		"admin_users",
+	allowed := map[string]bool{
+		"audit_logs": true, "user_project_roles": true, "project_role_permissions": true,
+		"project_roles": true, "user_tenants": true, "records": true, "files": true,
+		"collections": true, "tenants": true, "api_keys": true, "users": true,
+		"admin_project_roles": true, "projects": true, "admin_users": true,
 	}
-	for _, table := range tables {
+	for table := range allowed {
 		_, err := pool.Exec(context.Background(), fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table))
 		if err != nil {
 			t.Fatalf("testhelper: truncate %s: %v", table, err)

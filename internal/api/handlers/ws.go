@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/s-piazzano/cosmoria/internal/auth"
@@ -9,18 +10,33 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/tenant"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+func newUpgrader(allowedOrigins []string) websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true
+			}
+			if len(allowedOrigins) == 0 {
+				return origin == "https://"+r.Host || origin == "http://"+r.Host
+			}
+			for _, o := range allowedOrigins {
+				if strings.EqualFold(origin, o) {
+					return true
+				}
+			}
+			return false
+		},
+	}
 }
 
 type WSHandler struct {
-	Hub           *realtime.Hub
-	JWTSecret     string
-	TenantService *tenant.Service
+	Hub            *realtime.Hub
+	JWTSecret      string
+	TenantService  *tenant.Service
+	AllowedOrigins []string
 }
 
 // @Summary WebSocket realtime
@@ -59,6 +75,7 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	upgrader := newUpgrader(h.AllowedOrigins)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return

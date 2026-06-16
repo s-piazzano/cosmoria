@@ -12,12 +12,13 @@ import (
 )
 
 type ApiKey struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
-	UserID    string    `json:"user_id"`
-	Name      string    `json:"name"`
-	KeyPrefix string    `json:"key_prefix"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	ProjectID string     `json:"project_id"`
+	UserID    string     `json:"user_id"`
+	Name      string     `json:"name"`
+	KeyPrefix string     `json:"key_prefix"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 type CreateApiKeyResult struct {
@@ -45,7 +46,7 @@ func generateApiKey() (plainKey, keyHash, prefix string, err error) {
 	return plainKey, keyHash, prefix, nil
 }
 
-func (s *ApiKeyService) Create(ctx context.Context, projectID, userID, name string) (*CreateApiKeyResult, error) {
+func (s *ApiKeyService) Create(ctx context.Context, projectID, userID, name string, expiresAt *time.Time) (*CreateApiKeyResult, error) {
 	plainKey, keyHash, prefix, err := generateApiKey()
 	if err != nil {
 		return nil, err
@@ -53,11 +54,11 @@ func (s *ApiKeyService) Create(ctx context.Context, projectID, userID, name stri
 
 	var key ApiKey
 	err = s.pool.QueryRow(ctx,
-		`INSERT INTO api_keys (project_id, user_id, name, key_hash)
-		 VALUES ($1, $2, $3, $4)
-		 RETURNING id, project_id, user_id, name, created_at`,
-		projectID, userID, name, keyHash,
-	).Scan(&key.ID, &key.ProjectID, &key.UserID, &key.Name, &key.CreatedAt)
+		`INSERT INTO api_keys (project_id, user_id, name, key_hash, expires_at)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, project_id, user_id, name, created_at, expires_at`,
+		projectID, userID, name, keyHash, expiresAt,
+	).Scan(&key.ID, &key.ProjectID, &key.UserID, &key.Name, &key.CreatedAt, &key.ExpiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("apikey: create: %w", err)
 	}
@@ -74,12 +75,17 @@ func (s *ApiKeyService) Validate(ctx context.Context, key string) (*Claims, erro
 	keyHash := hex.EncodeToString(hash[:])
 
 	var userID, projectID string
+	var expiresAt *time.Time
 	err := s.pool.QueryRow(ctx,
-		`SELECT user_id, project_id FROM api_keys WHERE key_hash = $1`,
+		`SELECT user_id, project_id, expires_at FROM api_keys WHERE key_hash = $1`,
 		keyHash,
-	).Scan(&userID, &projectID)
+	).Scan(&userID, &projectID, &expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("apikey: invalid key")
+	}
+
+	if expiresAt != nil && time.Now().After(*expiresAt) {
+		return nil, fmt.Errorf("apikey: expired")
 	}
 
 	return &Claims{
@@ -90,7 +96,7 @@ func (s *ApiKeyService) Validate(ctx context.Context, key string) (*Claims, erro
 
 func (s *ApiKeyService) List(ctx context.Context, projectID string) ([]ApiKey, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, user_id, name, SUBSTRING(key_hash, 1, 8), created_at
+		`SELECT id, project_id, user_id, name, SUBSTRING(key_hash, 1, 8), created_at, expires_at
 		 FROM api_keys WHERE project_id = $1
 		 ORDER BY created_at DESC`,
 		projectID,
@@ -103,7 +109,7 @@ func (s *ApiKeyService) List(ctx context.Context, projectID string) ([]ApiKey, e
 	var keys []ApiKey
 	for rows.Next() {
 		var k ApiKey
-		if err := rows.Scan(&k.ID, &k.ProjectID, &k.UserID, &k.Name, &k.KeyPrefix, &k.CreatedAt); err != nil {
+		if err := rows.Scan(&k.ID, &k.ProjectID, &k.UserID, &k.Name, &k.KeyPrefix, &k.CreatedAt, &k.ExpiresAt); err != nil {
 			return nil, fmt.Errorf("apikey: scan: %w", err)
 		}
 		keys = append(keys, k)

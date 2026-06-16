@@ -31,7 +31,7 @@ func setupApiKeyTest(t *testing.T) (*pgxpool.Pool, *auth.ApiKeyService, *testhel
 func TestApiKey_Create_Format(t *testing.T) {
 	_, svc, project, user := setupApiKeyTest(t)
 
-	result, err := svc.Create(context.Background(), project.ID, user.ID, "my-key")
+	result, err := svc.Create(context.Background(), project.ID, user.ID, "my-key", nil)
 	require.NoError(t, err)
 
 	assert.True(t, strings.HasPrefix(result.PlainKey, "ck_"), "key should start with ck_")
@@ -49,7 +49,7 @@ func TestApiKey_Create_Format(t *testing.T) {
 func TestApiKey_Validate_Success(t *testing.T) {
 	_, svc, project, user := setupApiKeyTest(t)
 
-	result, err := svc.Create(context.Background(), project.ID, user.ID, "validate-key")
+	result, err := svc.Create(context.Background(), project.ID, user.ID, "validate-key", nil)
 	require.NoError(t, err)
 
 	claims, err := svc.Validate(context.Background(), result.PlainKey)
@@ -68,7 +68,7 @@ func TestApiKey_Validate_InvalidKey(t *testing.T) {
 func TestApiKey_Validate_RevokedKey(t *testing.T) {
 	_, svc, project, user := setupApiKeyTest(t)
 
-	result, err := svc.Create(context.Background(), project.ID, user.ID, "revoke-me")
+	result, err := svc.Create(context.Background(), project.ID, user.ID, "revoke-me", nil)
 	require.NoError(t, err)
 
 	err = svc.Delete(context.Background(), result.ApiKey.ID, project.ID)
@@ -81,9 +81,9 @@ func TestApiKey_Validate_RevokedKey(t *testing.T) {
 func TestApiKey_List_Scoped(t *testing.T) {
 	_, svc, project, user := setupApiKeyTest(t)
 
-	_, err := svc.Create(context.Background(), project.ID, user.ID, "key-1")
+	_, err := svc.Create(context.Background(), project.ID, user.ID, "key-1", nil)
 	require.NoError(t, err)
-	_, err = svc.Create(context.Background(), project.ID, user.ID, "key-2")
+	_, err = svc.Create(context.Background(), project.ID, user.ID, "key-2", nil)
 	require.NoError(t, err)
 
 	keys, err := svc.List(context.Background(), project.ID)
@@ -111,7 +111,7 @@ func TestApiKey_Delete_WrongProject(t *testing.T) {
 	admin := testhelper.CreateTestAdmin(t, pool)
 	otherProject := testhelper.CreateTestProject(t, pool, admin.ID)
 
-	result, err := svc.Create(context.Background(), project.ID, user.ID, "wrong-project-delete")
+	result, err := svc.Create(context.Background(), project.ID, user.ID, "wrong-project-delete", nil)
 	require.NoError(t, err)
 
 	// Delete with wrong project ID should not delete the key

@@ -4,9 +4,27 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 const defaultMaxSize = 50 << 20
+
+var blockedMimeTypes = []string{
+	"text/html",
+	"application/javascript",
+	"text/javascript",
+	"application/x-javascript",
+}
+
+func ValidateMimeType(mimeType string) error {
+	lower := strings.ToLower(mimeType)
+	for _, blocked := range blockedMimeTypes {
+		if lower == blocked {
+			return fmt.Errorf("upload: mime type %q is not allowed", mimeType)
+		}
+	}
+	return nil
+}
 
 type UploadInfo struct {
 	Filename   string

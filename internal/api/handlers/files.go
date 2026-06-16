@@ -64,8 +64,18 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	projectID := claims.ProjectID
 	tenantID := r.PathValue("tid")
 
-	info, err := storage.ParseUpload(r, 0)
+	maxSize := h.Service.MaxUploadSize()
+	if maxSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+	}
+
+	info, err := storage.ParseUpload(r, maxSize)
 	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	if err := storage.ValidateMimeType(info.MimeType); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}

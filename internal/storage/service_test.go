@@ -46,7 +46,7 @@ func setupStorageTest(t *testing.T) (*pgxpool.Pool, *storage.Service, *mockBacke
 
 	pool := testhelper.NewTestDB(t)
 	backend := &mockBackend{localURL: "/api/download/"}
-	svc := storage.NewService(pool, backend)
+	svc := storage.NewService(pool, backend, 0)
 
 	admin := testhelper.CreateTestAdmin(t, pool)
 	project := testhelper.CreateTestProject(t, pool, admin.ID)

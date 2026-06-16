@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/s-piazzano/cosmoria/internal/auth"
 )
@@ -73,5 +74,5 @@ func isPathSafe(base, candidate string) bool {
 	if err != nil {
 		return false
 	}
-	return rel == filepath.Clean(rel)
+	return !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel)
 }
