@@ -319,7 +319,7 @@ Dev-only tools:
 | Tool | Purpose |
 |------|---------|
 | `swaggo/swag` CLI | Generate OpenAPI spec from annotations |
-| `openapi-typescript` (npm) | Generate TS types from OpenAPI spec |
+| `openapi-typescript` (npm) v5 | Generate TS types from OpenAPI spec (v5 required for Swagger 2.0 compat) |
 
 Always consult the approved list before adding new dependencies.
 

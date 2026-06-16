@@ -13,5 +13,5 @@ if [ ! -f "$SPEC" ]; then
 fi
 
 echo "🔄 Generating TypeScript types from $SPEC..."
-npx --yes openapi-typescript "$SPEC" -o "$OUT"
+npx --yes openapi-typescript@5 "$SPEC" -o "$OUT"
 echo "✅ Generated $OUT"

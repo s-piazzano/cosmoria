@@ -140,8 +140,7 @@ definitions:
   handlers.createRecordRequest:
     properties:
       data:
-        additionalProperties:
-          type: any
+        additionalProperties: {}
         type: object
     type: object
   handlers.createRoleRequest:
@@ -152,6 +151,27 @@ definitions:
   handlers.createTenantRequest:
     properties:
       name:
+        type: string
+    type: object
+  handlers.fileResponse:
+    properties:
+      created_at:
+        type: string
+      filename:
+        type: string
+      id:
+        type: string
+      mime_type:
+        type: string
+      presigned_url:
+        type: string
+      project_id:
+        type: string
+      size:
+        type: integer
+      tenant_id:
+        type: string
+      uploaded_by:
         type: string
     type: object
   handlers.loginRequest:
@@ -183,8 +203,7 @@ definitions:
   handlers.updateRecordRequest:
     properties:
       data:
-        additionalProperties:
-          type: any
+        additionalProperties: {}
         type: object
     type: object
   handlers.userRoleRequest:
@@ -249,8 +268,7 @@ definitions:
       created_at:
         type: string
       data:
-        additionalProperties:
-          type: any
+        additionalProperties: {}
         type: object
       id:
         type: string
@@ -278,7 +296,7 @@ info:
     email: support@cosmoria.dev
     name: Cosmoria Support
     url: https://cosmoria.dev/support
-  description: Type "Bearer" followed by a space and the admin JWT token.
+  description: Backend engine for building multi-tenant SaaS applications on PostgreSQL.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -502,6 +520,43 @@ paths:
       security:
       - AdminBearerAuth: []
       summary: Remove admin role from a project
+      tags:
+      - Admin
+  /api/admin/projects/{pid}/audit-logs:
+    get:
+      description: List all audit log entries for a project with cursor-based pagination.
+        Admin only.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Pagination cursor (created_at timestamp)
+        in: query
+        name: cursor
+        type: string
+      - description: Max results (1-100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - AdminBearerAuth: []
+      summary: List audit logs
       tags:
       - Admin
   /api/admin/projects/{pid}/collections:
@@ -1532,6 +1587,174 @@ paths:
       summary: Update a record
       tags:
       - Records
+  /api/projects/{pid}/tenants/{tid}/files:
+    get:
+      description: List all files for a tenant with cursor-based pagination.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: Pagination cursor
+        in: query
+        name: cursor
+        type: string
+      - description: Max results (1-100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List files
+      tags:
+      - Files
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a file to S3-compatible storage and store metadata. Tenant-scoped.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.fileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload a file
+      tags:
+      - Files
+  /api/projects/{pid}/tenants/{tid}/files/{fid}:
+    delete:
+      description: Delete a file from S3 storage and remove its metadata.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: File ID
+        in: path
+        name: fid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a file
+      tags:
+      - Files
+    get:
+      description: Get file metadata and a presigned download URL.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: Tenant ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      - description: File ID
+        in: path
+        name: fid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.fileResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get file
+      tags:
+      - Files
   /api/projects/{pid}/tenants/{tid}/users:
     post:
       consumes:
@@ -1613,6 +1836,33 @@ paths:
       summary: Remove user from tenant
       tags:
       - Tenants
+  /api/projects/{pid}/ws:
+    get:
+      description: Upgrade to WebSocket for realtime events. Authenticate via ?token=
+        query param. Requires Bearer JWT.
+      parameters:
+      - description: Project ID
+        in: path
+        name: pid
+        required: true
+        type: string
+      - description: JWT token
+        in: query
+        name: token
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: WebSocket realtime
+      tags:
+      - Realtime
   /health:
     get:
       description: Returns the health status of the server.
@@ -1632,10 +1882,12 @@ schemes:
 - http
 securityDefinitions:
   AdminBearerAuth:
+    description: Type "Bearer" followed by a space and the admin JWT token.
     in: header
     name: Authorization
     type: apiKey
   BearerAuth:
+    description: Type "Bearer" followed by a space and the JWT token.
     in: header
     name: Authorization
     type: apiKey

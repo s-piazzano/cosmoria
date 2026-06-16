@@ -18,4 +18,6 @@ export type {
   RecordData,
   Record,
   PaginatedRecords,
+  FileResponse,
+  PaginatedFiles,
 } from "./client.ts";

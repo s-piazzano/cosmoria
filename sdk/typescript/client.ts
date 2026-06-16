@@ -48,6 +48,19 @@ export class CosmoriaClient {
     return this.request<{ status: string }>("GET", "/health");
   }
 
+  /** WebSocket realtime connection */
+  connectWebSocket(
+    projectId: string,
+    token: string,
+    tenantId?: string,
+  ): WebSocket {
+    const params = new URLSearchParams({ token });
+    if (tenantId) params.set("tenant_id", tenantId);
+    return new WebSocket(
+      `${this.baseUrl.replace(/^http/, "ws")}/api/projects/${projectId}/ws?${params}`,
+    );
+  }
+
   /** Auth */
   auth = {
     signup: (email: string, password: string, project_id: string) =>
@@ -228,6 +241,60 @@ export class CosmoriaClient {
         `/api/projects/${projectId}/tenants/${tenantId}/collections/${collectionId}/records/${recordId}`,
       ),
   };
+
+  /** Files */
+  files = {
+    upload: (projectId: string, tenantId: string, file: File | Blob, filename?: string) =>
+      this.uploadFile<FileResponse>(
+        `/api/projects/${projectId}/tenants/${tenantId}/files`,
+        file, filename,
+      ),
+
+    list: (
+      projectId: string, tenantId: string,
+      cursor?: string, limit?: number,
+    ) =>
+      this.request<PaginatedFiles>(
+        "GET",
+        `/api/projects/${projectId}/tenants/${tenantId}/files`
+        + `?${new URLSearchParams({ ...(cursor ? { cursor } : {}), ...(limit ? { limit: String(limit) } : {}) })}`,
+      ),
+
+    get: (projectId: string, tenantId: string, fileId: string) =>
+      this.request<FileResponse>(
+        "GET",
+        `/api/projects/${projectId}/tenants/${tenantId}/files/${fileId}`,
+      ),
+
+    delete: (projectId: string, tenantId: string, fileId: string) =>
+      this.request<void>(
+        "DELETE",
+        `/api/projects/${projectId}/tenants/${tenantId}/files/${fileId}`,
+      ),
+  };
+
+  private async uploadFile<T>(
+    path: string,
+    file: File | Blob,
+    filename?: string,
+  ): Promise<T> {
+    const fd = new FormData();
+    fd.append("file", file, filename);
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers,
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new CosmoriaError(res.status, (data as ApiError).error ?? "unknown_error", data);
+    }
+    return data as T;
+  }
 }
 
 // ---- Types ----
@@ -336,6 +403,23 @@ export interface Record {
 
 export interface PaginatedRecords {
   data: Record[];
+  next_cursor?: string;
+}
+
+export interface FileResponse {
+  id: string;
+  project_id: string;
+  tenant_id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  presigned_url?: string;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface PaginatedFiles {
+  files: FileResponse[];
   next_cursor?: string;
 }
 
