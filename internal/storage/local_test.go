@@ -102,10 +102,11 @@ func TestNewLocalBackend_CreatesBasePath(t *testing.T) {
 }
 
 func TestLocalBackend_KeySanitization(t *testing.T) {
-	basePath := tempDir(t)
+	// Use a nested basePath so that ../../ stays within /tmp (writable)
+	basePath := filepath.Join(tempDir(t), "level1", "level2")
 	backend := NewLocalBackend(basePath)
 
-	key := "../../../etc/passwd"
+	key := "../../cosmoria-traversal-test"
 	err := backend.Upload(context.Background(), key, strings.NewReader("x"), 1, "text/plain")
 	require.NoError(t, err)
 

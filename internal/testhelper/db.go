@@ -22,6 +22,7 @@ func projectRoot() string {
 var (
 	setupOnce   sync.Once
 	migrateOnce sync.Once
+	setupErr    error
 )
 
 func TestDBURL() string {
@@ -41,7 +42,6 @@ func adminDBURL() string {
 func NewTestDB(t testing.TB) *pgxpool.Pool {
 	t.Helper()
 
-	var setupErr error
 	setupOnce.Do(func() {
 		adminPool, err := pgxpool.New(context.Background(), adminDBURL())
 		if err != nil {
@@ -79,6 +79,9 @@ func NewTestDB(t testing.TB) *pgxpool.Pool {
 		t.Fatalf("testhelper: connect test DB: %v", err)
 	}
 
+	// Truncate all tables BEFORE the test to ensure clean state
+	truncateAll(t, pool)
+
 	t.Cleanup(func() {
 		truncateAll(t, pool)
 		pool.Close()
@@ -89,18 +92,27 @@ func NewTestDB(t testing.TB) *pgxpool.Pool {
 
 func truncateAll(t testing.TB, pool *pgxpool.Pool) {
 	t.Helper()
-	allowed := map[string]bool{
-		"audit_logs": true, "user_project_roles": true, "project_role_permissions": true,
-		"project_roles": true, "user_tenants": true, "records": true, "files": true,
-		"collections": true, "tenants": true, "api_keys": true, "users": true,
-		"admin_project_roles": true, "projects": true, "admin_users": true,
+	// Deterministic order to avoid deadlocks between concurrent tests
+	tables := []string{
+		"audit_logs",
+		"user_project_roles",
+		"project_role_permissions",
+		"project_roles",
+		"user_tenants",
+		"records",
+		"files",
+		"collections",
+		"tenants",
+		"api_keys",
+		"users",
+		"admin_project_roles",
+		"projects",
+		"admin_users",
 	}
-	for table := range allowed {
+	for _, table := range tables {
 		_, err := pool.Exec(context.Background(), fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table))
 		if err != nil {
 			t.Fatalf("testhelper: truncate %s: %v", table, err)
 		}
 	}
 }
-
-

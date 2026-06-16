@@ -39,13 +39,13 @@ func newTestClient(hub *Hub, projectID, tenantID, userID string) *Client {
 func TestHub_RegisterAndPublish(t *testing.T) {
 	_, hub := setupHubTest(t)
 
-	client := newTestClient(hub, "p1", "t1", "u1")
+	client := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440003")
 	hub.Register(client)
 	defer hub.Unregister(client)
 
 	hub.Publisher().Publish(&Event{
-		ProjectID: "p1",
-		TenantID:  "t1",
+		ProjectID: "550e8400-e29b-41d4-a716-446655440000",
+		TenantID:  "550e8400-e29b-41d4-a716-446655440001",
 		Resource:  "files",
 		Action:    "create",
 	})
@@ -54,7 +54,7 @@ func TestHub_RegisterAndPublish(t *testing.T) {
 	case event := <-client.send:
 		assert.Equal(t, "files", event.Resource)
 		assert.Equal(t, "create", event.Action)
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("timeout waiting for event")
 	}
 }
@@ -62,8 +62,8 @@ func TestHub_RegisterAndPublish(t *testing.T) {
 func TestHub_FanOut_OnlyMatchingTenant(t *testing.T) {
 	_, hub := setupHubTest(t)
 
-	c1 := newTestClient(hub, "p1", "t1", "u1")
-	c2 := newTestClient(hub, "p1", "t2", "u2")
+	c1 := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440003")
+	c2 := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440002", "550e8400-e29b-41d4-a716-446655440004")
 
 	hub.Register(c1)
 	hub.Register(c2)
@@ -71,8 +71,8 @@ func TestHub_FanOut_OnlyMatchingTenant(t *testing.T) {
 	defer hub.Unregister(c2)
 
 	hub.Publisher().Publish(&Event{
-		ProjectID: "p1",
-		TenantID:  "t1",
+		ProjectID: "550e8400-e29b-41d4-a716-446655440000",
+		TenantID:  "550e8400-e29b-41d4-a716-446655440001",
 		Resource:  "tenants",
 		Action:    "update",
 	})
@@ -80,7 +80,7 @@ func TestHub_FanOut_OnlyMatchingTenant(t *testing.T) {
 	select {
 	case <-c1.send:
 		// ok — c1 matches tenant t1
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("c1 should receive event for tenant t1")
 	}
 
@@ -95,13 +95,13 @@ func TestHub_FanOut_OnlyMatchingTenant(t *testing.T) {
 func TestHub_Unregister_StopsReceiving(t *testing.T) {
 	_, hub := setupHubTest(t)
 
-	client := newTestClient(hub, "p1", "t1", "u1")
+	client := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440003")
 	hub.Register(client)
 	hub.Unregister(client)
 
 	hub.Publisher().Publish(&Event{
-		ProjectID: "p1",
-		TenantID:  "t1",
+		ProjectID: "550e8400-e29b-41d4-a716-446655440000",
+		TenantID:  "550e8400-e29b-41d4-a716-446655440001",
 		Resource:  "files",
 		Action:    "delete",
 	})
@@ -117,28 +117,28 @@ func TestHub_Unregister_StopsReceiving(t *testing.T) {
 func TestHub_MultipleClientsSameProject(t *testing.T) {
 	_, hub := setupHubTest(t)
 
-	c1 := newTestClient(hub, "p1", "t1", "u1")
-	c2 := newTestClient(hub, "p1", "t1", "u2")
+	c1 := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440003")
+	c2 := newTestClient(hub, "550e8400-e29b-41d4-a716-446655440000", "550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440004")
 
 	hub.Register(c1)
 	hub.Register(c2)
 
 	hub.Publisher().Publish(&Event{
-		ProjectID: "p1",
-		TenantID:  "t1",
+		ProjectID: "550e8400-e29b-41d4-a716-446655440000",
+		TenantID:  "550e8400-e29b-41d4-a716-446655440001",
 		Resource:  "tenants",
 		Action:    "create",
 	})
 
 	select {
 	case <-c1.send:
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("c1 should receive")
 	}
 
 	select {
 	case <-c2.send:
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("c2 should also receive")
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,7 +13,7 @@ import (
 const channelPrefix = "cosm_"
 
 func channelName(projectID string) string {
-	return channelPrefix + projectID
+	return channelPrefix + strings.ReplaceAll(projectID, "-", "_")
 }
 
 func isValidUUID(s string) bool {
