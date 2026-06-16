@@ -67,6 +67,83 @@ export interface paths {
       };
     };
   };
+  "/api/admin/projects/{pid}": {
+    /** Get a single project's details. */
+    get: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["adminauth.Project"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+        /** Not Found */
+        404: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+    /** Update project name or JWT expiry. super_admin or assigned admin. */
+    put: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+        };
+        body: {
+          /** Fields to update */
+          body: definitions["handlers.updateProjectRequest"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["adminauth.Project"];
+        };
+        /** Bad Request */
+        400: {
+          schema: { [key: string]: string };
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+    /** Delete a project and all associated data. super_admin only. */
+    delete: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+        };
+      };
+      responses: {
+        /** No Content */
+        204: never;
+        /** Bad Request */
+        400: {
+          schema: { [key: string]: string };
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+        /** Forbidden */
+        403: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+  };
   "/api/admin/projects/{pid}/admin-roles": {
     /** List all admin roles assigned to a project. super_admin only. */
     get: {
@@ -134,6 +211,91 @@ export interface paths {
           pid: string;
           /** Admin user ID */
           aid: string;
+        };
+      };
+      responses: {
+        /** No Content */
+        204: never;
+        /** Bad Request */
+        400: {
+          schema: { [key: string]: string };
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+        /** Forbidden */
+        403: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+  };
+  "/api/admin/projects/{pid}/api-keys": {
+    /** List all API keys for a project. super_admin only. */
+    get: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["auth.ApiKey"][];
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+        /** Forbidden */
+        403: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+    /** Create a new API key for a project, attached to a user. super_admin only. */
+    post: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+        };
+        body: {
+          /** User ID and key name */
+          body: definitions["handlers.createApiKeyRequest"];
+        };
+      };
+      responses: {
+        /** Created */
+        201: {
+          schema: definitions["auth.CreateApiKeyResult"];
+        };
+        /** Bad Request */
+        400: {
+          schema: { [key: string]: string };
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+        /** Forbidden */
+        403: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+  };
+  "/api/admin/projects/{pid}/api-keys/{kid}": {
+    /** Delete an API key. super_admin only. */
+    delete: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+          /** API key ID */
+          kid: string;
         };
       };
       responses: {
@@ -611,6 +773,44 @@ export interface paths {
       };
     };
   };
+  "/api/auth/me": {
+    /** Return the authenticated user's profile. */
+    get: {
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["auth.UserDTO"];
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+    /** Update email and/or password for the authenticated user. */
+    put: {
+      parameters: {
+        body: {
+          /** Fields to update */
+          body: definitions["handlers.updateMeRequest"];
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: definitions["auth.UserDTO"];
+        };
+        /** Bad Request */
+        400: {
+          schema: { [key: string]: string };
+        };
+        /** Unauthorized */
+        401: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+  };
   "/api/auth/signup": {
     /** Create a new end-user account scoped to a project. */
     post: {
@@ -991,6 +1191,35 @@ export interface paths {
       };
     };
   };
+  "/api/projects/{pid}/tenants/{tid}/files/{fid}/download": {
+    /** Stream file bytes directly for local storage. For S3, use the presigned URL from GET. */
+    get: {
+      parameters: {
+        path: {
+          /** Project ID */
+          pid: string;
+          /** Tenant ID */
+          tid: string;
+          /** File ID */
+          fid: string;
+        };
+      };
+      responses: {
+        /** OK */
+        200: {
+          schema: unknown;
+        };
+        /** Not Found */
+        404: {
+          schema: { [key: string]: string };
+        };
+        /** Internal Server Error */
+        500: {
+          schema: { [key: string]: string };
+        };
+      };
+    };
+  };
   "/api/projects/{pid}/tenants/{tid}/users": {
     /** Assign an existing user to a tenant. */
     post: {
@@ -1116,9 +1345,21 @@ export interface definitions {
     name?: string;
     role?: string;
   };
+  "auth.ApiKey": {
+    created_at?: string;
+    id?: string;
+    key_prefix?: string;
+    name?: string;
+    project_id?: string;
+    user_id?: string;
+  };
   "auth.AuthResult": {
     token?: string;
     user?: definitions["auth.UserDTO"];
+  };
+  "auth.CreateApiKeyResult": {
+    api_key?: definitions["auth.ApiKey"];
+    plain_key?: string;
   };
   "auth.UserDTO": {
     email?: string;
@@ -1151,6 +1392,10 @@ export interface definitions {
     email?: string;
     password?: string;
     project_id?: string;
+  };
+  "handlers.createApiKeyRequest": {
+    name?: string;
+    user_id?: string;
   };
   "handlers.createCollectionRequest": {
     name?: string;
@@ -1193,6 +1438,15 @@ export interface definitions {
   };
   "handlers.updateCollectionSchemaRequest": {
     schema?: definitions["collections.Schema"];
+  };
+  "handlers.updateMeRequest": {
+    current_password?: string;
+    email?: string;
+    new_password?: string;
+  };
+  "handlers.updateProjectRequest": {
+    jwt_expiry?: number;
+    name?: string;
   };
   "handlers.updateRecordRequest": {
     data?: { [key: string]: unknown };

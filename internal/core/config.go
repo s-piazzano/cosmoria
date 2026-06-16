@@ -26,6 +26,7 @@ type Config struct {
 	S3Bucket       string
 	S3Region       string
 	S3UseSSL       bool
+	StoragePath    string
 }
 
 func generateSecret() string {
@@ -95,5 +96,6 @@ func LoadConfig() *Config {
 		S3Bucket:       getEnv("S3_BUCKET", "cosmoria"),
 		S3Region:       getEnv("S3_REGION", "us-east-1"),
 		S3UseSSL:       os.Getenv("S3_USE_SSL") == "true",
+		StoragePath:    getEnv("STORAGE_PATH", "./data/files"),
 	}
 }

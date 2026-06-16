@@ -135,3 +135,68 @@ func (s *Service) resolveExpiry(ctx context.Context, projectID string) (int64, e
 
 	return s.cfg.JWTExpiry, nil
 }
+
+func (s *Service) GetByID(ctx context.Context, userID string) (*UserDTO, error) {
+	var u UserDTO
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, email FROM users WHERE id = $1`,
+		userID,
+	).Scan(&u.ID, &u.Email)
+	if err != nil {
+		return nil, fmt.Errorf("auth: get user: %w", err)
+	}
+	return &u, nil
+}
+
+type UpdateEmailInput struct {
+	UserID string
+	Email  string
+}
+
+func (s *Service) UpdateEmail(ctx context.Context, input UpdateEmailInput) (*UserDTO, error) {
+	var u UserDTO
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users SET email = $1 WHERE id = $2
+		 RETURNING id, email`,
+		input.Email, input.UserID,
+	).Scan(&u.ID, &u.Email)
+	if err != nil {
+		return nil, fmt.Errorf("auth: update email: %w", err)
+	}
+	return &u, nil
+}
+
+type UpdatePasswordInput struct {
+	UserID          string
+	CurrentPassword string
+	NewPassword     string
+}
+
+func (s *Service) UpdatePassword(ctx context.Context, input UpdatePasswordInput) error {
+	var passwordHash string
+	err := s.pool.QueryRow(ctx,
+		`SELECT password_hash FROM users WHERE id = $1`,
+		input.UserID,
+	).Scan(&passwordHash)
+	if err != nil {
+		return fmt.Errorf("auth: user not found")
+	}
+
+	if !CheckPassword(input.CurrentPassword, []byte(passwordHash)) {
+		return fmt.Errorf("auth: invalid current password")
+	}
+
+	newHash, err := HashPassword(input.NewPassword)
+	if err != nil {
+		return fmt.Errorf("auth: hash password: %w", err)
+	}
+
+	_, err = s.pool.Exec(ctx,
+		`UPDATE users SET password_hash = $1 WHERE id = $2`,
+		string(newHash), input.UserID,
+	)
+	if err != nil {
+		return fmt.Errorf("auth: update password: %w", err)
+	}
+	return nil
+}

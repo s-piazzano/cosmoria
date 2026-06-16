@@ -162,6 +162,20 @@ func (s *S3Client) DeleteObject(key string) error {
 	return nil
 }
 
+func (s *S3Client) Ping() error {
+	u := fmt.Sprintf("%s/%s", s.baseURL(), s.bucket)
+	req, err := http.NewRequest("HEAD", u, nil)
+	if err != nil {
+		return fmt.Errorf("s3: create ping request: %w", err)
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("s3: ping: %w", err)
+	}
+	resp.Body.Close()
+	return nil
+}
+
 func (s *S3Client) hmacSHA256(key, data []byte) []byte {
 	h := hmac.New(sha256.New, key)
 	h.Write(data)

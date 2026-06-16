@@ -36,7 +36,7 @@ type Server struct {
 
 func NewServer(pool *pgxpool.Pool, cfg *core.Config) *Server {
 	collSvc := collections.NewService(pool)
-	s3Client := storage.NewS3Client(cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3Region, cfg.S3UseSSL)
+	storageBackend := storage.NewBackend(cfg)
 	return &Server{
 		pool:  pool,
 		cfg:   cfg,
@@ -48,7 +48,7 @@ func NewServer(pool *pgxpool.Pool, cfg *core.Config) *Server {
 			Collections: collSvc,
 			RBAC:        rbac.NewService(pool),
 			Records:     records.NewService(pool, collSvc),
-			Storage:     storage.NewService(pool, s3Client),
+			Storage:     storage.NewService(pool, storageBackend),
 			Audit:       audit.NewService(pool),
 		},
 	}

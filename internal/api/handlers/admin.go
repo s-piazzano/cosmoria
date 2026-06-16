@@ -30,6 +30,11 @@ type assignRoleRequest struct {
 	Role        string `json:"role"`
 }
 
+type updateProjectRequest struct {
+	Name      string `json:"name,omitempty"`
+	JWTExpiry *int64 `json:"jwt_expiry,omitempty"`
+}
+
 // @Summary Bootstrap the platform
 // @Description Create the first super_admin and default project. Only works once.
 // @Tags Admin
@@ -156,6 +161,116 @@ func (h *AdminHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, projects)
+}
+
+// @Summary Get project by ID
+// @Security AdminBearerAuth
+// @Description Get a single project's details.
+// @Tags Admin
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Success 200 {object} adminauth.Project
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/admin/projects/{pid} [get]
+func (h *AdminHandler) GetProject(w http.ResponseWriter, r *http.Request) {
+	claims := adminauth.GetAdminAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := r.PathValue("pid")
+	if projectID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
+		return
+	}
+
+	project, err := h.Service.GetProject(r.Context(), projectID)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "project_not_found"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, project)
+}
+
+// @Summary Update project
+// @Security AdminBearerAuth
+// @Description Update project name or JWT expiry. super_admin or assigned admin.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param pid path string true "Project ID"
+// @Param body body updateProjectRequest true "Fields to update"
+// @Success 200 {object} adminauth.Project
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/admin/projects/{pid} [put]
+func (h *AdminHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
+	claims := adminauth.GetAdminAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := r.PathValue("pid")
+	if projectID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
+		return
+	}
+
+	var req updateProjectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
+		return
+	}
+
+	project, err := h.Service.UpdateProject(r.Context(), projectID, adminauth.UpdateProjectInput{
+		Name:      req.Name,
+		JWTExpiry: req.JWTExpiry,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update_failed"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, project)
+}
+
+// @Summary Delete project
+// @Security AdminBearerAuth
+// @Description Delete a project and all associated data. super_admin only.
+// @Tags Admin
+// @Param pid path string true "Project ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/admin/projects/{pid} [delete]
+func (h *AdminHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	claims := adminauth.GetAdminAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if claims.Role != "super_admin" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+		return
+	}
+
+	projectID := r.PathValue("pid")
+	if projectID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
+		return
+	}
+
+	if err := h.Service.DeleteProject(r.Context(), projectID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete_failed"})
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // @Summary Assign admin role to a project

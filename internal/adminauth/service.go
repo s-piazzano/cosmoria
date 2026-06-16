@@ -223,6 +223,97 @@ func (s *Service) ListRoles(ctx context.Context, projectID string) ([]AdminProje
 	return roles, nil
 }
 
+func (s *Service) GetProject(ctx context.Context, id string) (*Project, error) {
+	var p Project
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, name, admin_owner_id, jwt_expiry, created_at FROM projects WHERE id = $1`,
+		id,
+	).Scan(&p.ID, &p.Name, &p.AdminOwnerID, &p.JWTExpiry, &p.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("adminauth: get project: %w", err)
+	}
+	return &p, nil
+}
+
+type UpdateProjectInput struct {
+	Name      string
+	JWTExpiry *int64
+}
+
+func (s *Service) UpdateProject(ctx context.Context, id string, input UpdateProjectInput) (*Project, error) {
+	var p Project
+	err := s.pool.QueryRow(ctx,
+		`UPDATE projects SET name = COALESCE(NULLIF($1, ''), name), jwt_expiry = $2
+		 WHERE id = $3
+		 RETURNING id, name, admin_owner_id, jwt_expiry, created_at`,
+		input.Name, input.JWTExpiry, id,
+	).Scan(&p.ID, &p.Name, &p.AdminOwnerID, &p.JWTExpiry, &p.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("adminauth: update project: %w", err)
+	}
+	return &p, nil
+}
+
+func (s *Service) DeleteProject(ctx context.Context, id string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("adminauth: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `DELETE FROM audit_logs WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete audit: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM files WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete files: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM records WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete records: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM user_project_roles WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete user roles: %w", err)
+	}
+	_, err = tx.Exec(ctx,
+		`DELETE FROM project_role_permissions WHERE role_id IN (SELECT id FROM project_roles WHERE project_id = $1)`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete role permissions: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM project_roles WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete roles: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM user_tenants WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete user tenants: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM tenants WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete tenants: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM collections WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete collections: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM api_keys WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete api keys: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM admin_project_roles WHERE project_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete admin roles: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM projects WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("adminauth: delete project: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 type AdminProjectRole struct {
 	AdminUserID string    `json:"admin_user_id"`
 	ProjectID   string    `json:"project_id"`

@@ -22,21 +22,28 @@ type File struct {
 }
 
 type Service struct {
-	pool *pgxpool.Pool
-	s3   *S3Client
+	pool    *pgxpool.Pool
+	backend StorageBackend
 }
 
-func NewService(pool *pgxpool.Pool, s3 *S3Client) *Service {
-	return &Service{pool: pool, s3: s3}
+func NewService(pool *pgxpool.Pool, backend StorageBackend) *Service {
+	return &Service{pool: pool, backend: backend}
+}
+
+func (s *Service) StoragePath() string {
+	if lb, ok := s.backend.(*LocalBackend); ok {
+		return lb.basePath
+	}
+	return ""
 }
 
 func (s *Service) Upload(ctx context.Context, projectID, tenantID, filename, mimeType string, reader io.Reader, size int64, uploadedBy string) (*File, error) {
 	suffix := generateFileID()
 	safeName := sanitizeFilename(filename)
-	s3Key := fmt.Sprintf("%s/%s/%s-%s", projectID, tenantID, suffix, safeName)
+	key := fmt.Sprintf("%s/%s/%s-%s", projectID, tenantID, suffix, safeName)
 
-	if err := s.s3.PutObject(s3Key, reader, size, mimeType); err != nil {
-		return nil, fmt.Errorf("storage: upload to s3: %w", err)
+	if err := s.backend.Upload(ctx, key, reader, size, mimeType); err != nil {
+		return nil, fmt.Errorf("storage: upload: %w", err)
 	}
 
 	var f File
@@ -44,7 +51,7 @@ func (s *Service) Upload(ctx context.Context, projectID, tenantID, filename, mim
 		`INSERT INTO files (project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by, created_at`,
-		projectID, tenantID, safeName, s3Key, size, mimeType, uploadedBy,
+		projectID, tenantID, safeName, key, size, mimeType, uploadedBy,
 	).Scan(&f.ID, &f.ProjectID, &f.TenantID, &f.Filename, &f.S3Key, &f.Size, &f.MimeType, &f.UploadedBy, &f.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("storage: insert metadata: %w", err)
@@ -59,6 +66,25 @@ type FileWithURL struct {
 }
 
 func (s *Service) GetByID(ctx context.Context, projectID, tenantID, id string) (*FileWithURL, error) {
+	f, err := s.GetMeta(ctx, projectID, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	url, err := s.backend.DownloadURL(ctx, f.S3Key, 5*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("storage: get download url: %w", err)
+	}
+
+	if s.backend.IsLocal() {
+		// For local storage, use the API download endpoint
+		url = fmt.Sprintf("/api/projects/%s/tenants/%s/files/%s/download", projectID, tenantID, id)
+	}
+
+	return &FileWithURL{File: *f, PresignedURL: url}, nil
+}
+
+func (s *Service) GetMeta(ctx context.Context, projectID, tenantID, id string) (*File, error) {
 	var f File
 	err := s.pool.QueryRow(ctx,
 		`SELECT id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by, created_at
@@ -68,13 +94,7 @@ func (s *Service) GetByID(ctx context.Context, projectID, tenantID, id string) (
 	if err != nil {
 		return nil, fmt.Errorf("storage: get: %w", err)
 	}
-
-	url, err := s.s3.PresignedGetURL(f.S3Key, 5*time.Minute)
-	if err != nil {
-		return nil, fmt.Errorf("storage: presign url: %w", err)
-	}
-
-	return &FileWithURL{File: f, PresignedURL: url}, nil
+	return &f, nil
 }
 
 func (s *Service) List(ctx context.Context, projectID, tenantID string, cursor string, limit int) ([]File, string, error) {
@@ -129,8 +149,8 @@ func (s *Service) Delete(ctx context.Context, projectID, tenantID, id string) er
 		return fmt.Errorf("storage: delete: %w", err)
 	}
 
-	if err := s.s3.DeleteObject(s3Key); err != nil {
-		return fmt.Errorf("storage: delete from s3: %w", err)
+	if err := s.backend.Delete(ctx, s3Key); err != nil {
+		return fmt.Errorf("storage: delete from backend: %w", err)
 	}
 
 	return nil

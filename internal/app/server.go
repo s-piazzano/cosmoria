@@ -26,6 +26,9 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 	authService := auth.NewService(pool, cfg)
 	authHandler := &handlers.AuthHandler{Service: authService}
 
+	apiKeyService := auth.NewApiKeyService(pool)
+	apiKeysHandler := &handlers.ApiKeysHandler{Service: apiKeyService}
+
 	tenantService := tenant.NewService(pool)
 	tenantHandler := &handlers.TenantHandler{Service: tenantService}
 
@@ -47,8 +50,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		Publisher: realtimeHub.Publisher(),
 	}
 
-	s3Client := storage.NewS3Client(cfg.S3Endpoint, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Bucket, cfg.S3Region, cfg.S3UseSSL)
-	storageService := storage.NewService(pool, s3Client)
+	storageBackend := storage.NewBackend(cfg)
+	storageService := storage.NewService(pool, storageBackend)
 	filesHandler := &handlers.FilesHandler{
 		Service:   storageService,
 		Publisher: realtimeHub.Publisher(),
@@ -61,6 +64,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 	router := api.NewRouter()
 	router.HandleFunc("POST /api/auth/signup", authHandler.Signup)
 	router.HandleFunc("POST /api/auth/login", authHandler.Login)
+	router.HandleFunc("GET /api/auth/me", authHandler.Me)
+	router.HandleFunc("PUT /api/auth/me", authHandler.UpdateMe)
 
 	router.Handle("POST /api/projects/{pid}/tenants",
 		middleware.RequirePermission(rbacService, "tenants", "create")(http.HandlerFunc(tenantHandler.Create)))
@@ -94,6 +99,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.Get)))
 	router.Handle("DELETE /api/projects/{pid}/tenants/{tid}/files/{fid}",
 		middleware.RequirePermission(rbacService, "files", "delete")(http.HandlerFunc(filesHandler.Delete)))
+	router.Handle("GET /api/projects/{pid}/tenants/{tid}/files/{fid}/download",
+		middleware.RequirePermission(rbacService, "files", "read")(http.HandlerFunc(filesHandler.Download)))
 
 	wsHandler := &handlers.WSHandler{
 		Hub:           realtimeHub,
@@ -108,10 +115,17 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 	router.HandleFunc("POST /api/admin/login", adminHandler.Login)
 	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
 	router.HandleFunc("GET /api/admin/projects", adminHandler.ListProjects)
+	router.HandleFunc("GET /api/admin/projects/{pid}", adminHandler.GetProject)
+	router.HandleFunc("PUT /api/admin/projects/{pid}", adminHandler.UpdateProject)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}", adminHandler.DeleteProject)
 
 	router.HandleFunc("POST /api/admin/projects/{pid}/admin-roles", adminHandler.AssignRole)
 	router.HandleFunc("GET /api/admin/projects/{pid}/admin-roles", adminHandler.ListRoles)
 	router.HandleFunc("DELETE /api/admin/projects/{pid}/admin-roles/{aid}", adminHandler.RemoveRole)
+
+	router.HandleFunc("POST /api/admin/projects/{pid}/api-keys", apiKeysHandler.Create)
+	router.HandleFunc("GET /api/admin/projects/{pid}/api-keys", apiKeysHandler.List)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/api-keys/{kid}", apiKeysHandler.Delete)
 
 	router.HandleFunc("POST /api/admin/projects/{pid}/roles", rolesHandler.CreateRole)
 	router.HandleFunc("GET /api/admin/projects/{pid}/roles", rolesHandler.ListRoles)
@@ -138,7 +152,7 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) http.Handler {
 
 	mw := middleware.Chain(router,
 		middleware.Logging(),
-		middleware.Auth(cfg.JWTSecret),
+		middleware.Auth(cfg.JWTSecret, apiKeyService),
 		middleware.AdminAuth(cfg.AdminJWTSecret),
 		middleware.Audit(auditLogger),
 		middleware.Tenant(tenantService),
