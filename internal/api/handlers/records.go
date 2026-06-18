@@ -43,9 +43,9 @@ func (h *RecordsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	collectionID := r.PathValue("cid")
-	if tenantID == "" || collectionID == "" {
+	if collectionID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -70,7 +70,7 @@ func (h *RecordsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
 		h.Publisher.Publish(&realtime.Event{
 			ProjectID:  claims.ProjectID,
-			TenantID:   tenantID,
+			TenantID:   safeStr(tenantID),
 			Resource:   "records",
 			Action:     "create",
 			ResourceID: record.ID,
@@ -101,9 +101,9 @@ func (h *RecordsHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	collectionID := r.PathValue("cid")
-	if tenantID == "" || collectionID == "" {
+	if collectionID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -155,9 +155,9 @@ func (h *RecordsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	recordID := r.PathValue("rid")
-	if tenantID == "" || recordID == "" {
+	if recordID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -191,10 +191,10 @@ func (h *RecordsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	collectionID := r.PathValue("cid")
 	recordID := r.PathValue("rid")
-	if tenantID == "" || collectionID == "" || recordID == "" {
+	if collectionID == "" || recordID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -219,7 +219,7 @@ func (h *RecordsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
 		h.Publisher.Publish(&realtime.Event{
 			ProjectID:  claims.ProjectID,
-			TenantID:   tenantID,
+			TenantID:   safeStr(tenantID),
 			Resource:   "records",
 			Action:     "update",
 			ResourceID: record.ID,
@@ -249,10 +249,10 @@ func (h *RecordsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	collectionID := r.PathValue("cid")
 	recordID := r.PathValue("rid")
-	if tenantID == "" || collectionID == "" || recordID == "" {
+	if collectionID == "" || recordID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_params"})
 		return
 	}
@@ -266,7 +266,7 @@ func (h *RecordsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(map[string]string{"collection_id": collectionID})
 		h.Publisher.Publish(&realtime.Event{
 			ProjectID:  claims.ProjectID,
-			TenantID:   tenantID,
+			TenantID:   safeStr(tenantID),
 			Resource:   "records",
 			Action:     "delete",
 			ResourceID: recordID,

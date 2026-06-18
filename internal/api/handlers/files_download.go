@@ -29,7 +29,7 @@ func (h *FilesHandler) Download(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectID := claims.ProjectID
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	fileID := r.PathValue("fid")
 
 	// Get file metadata (validates project+tenant ownership)

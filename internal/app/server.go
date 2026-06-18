@@ -34,8 +34,13 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	tenantService := tenant.NewService(pool)
 	tenantHandler := &handlers.TenantHandler{Service: tenantService}
 
+	auditLogger := audit.NewLogger(pool)
+	auditService := audit.NewService(pool)
+	auditHandler := &handlers.AuditHandler{Service: auditService}
+
 	adminService := adminauth.NewService(pool, cfg)
-	adminHandler := &handlers.AdminHandler{Service: adminService}
+	adminHandler := &handlers.AdminHandler{Service: adminService, AuditService: auditService}
+	adminTenantHandler := &handlers.AdminTenantHandler{Service: tenantService}
 
 	rbacService := rbac.NewService(pool)
 	rolesHandler := &handlers.RolesHandler{Service: rbacService}
@@ -58,10 +63,6 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 		Service:   storageService,
 		Publisher: realtimeHub.Publisher(),
 	}
-
-	auditLogger := audit.NewLogger(pool)
-	auditService := audit.NewService(pool)
-	auditHandler := &handlers.AuditHandler{Service: auditService}
 
 	router := api.NewRouter()
 	router.Handle("POST /api/auth/signup", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(authHandler.Signup)))
@@ -114,10 +115,15 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	router.Handle("GET /api/projects/{pid}/ws", wsHandler)
 
 	router.HandleFunc("GET /api/admin/projects/{pid}/audit-logs", auditHandler.List)
+	router.HandleFunc("GET /api/admin/projects/{pid}/overview", adminHandler.Overview)
+	router.HandleFunc("POST /api/admin/projects/{pid}/tenants", adminTenantHandler.Create)
+	router.HandleFunc("GET /api/admin/projects/{pid}/tenants", adminTenantHandler.List)
+	router.HandleFunc("DELETE /api/admin/projects/{pid}/tenants/{tid}", adminTenantHandler.Delete)
 
 	router.HandleFunc("GET /api/admin/setup/status", adminHandler.SetupStatus)
 	router.Handle("POST /api/admin/setup", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Setup)))
 	router.Handle("POST /api/admin/login", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Login)))
+	router.HandleFunc("GET /api/admin/me", adminHandler.Me)
 	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
 	router.HandleFunc("GET /api/admin/projects", adminHandler.ListProjects)
 	router.HandleFunc("GET /api/admin/projects/{pid}", adminHandler.GetProject)
@@ -157,7 +163,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 
 	router.Handle("GET /", webappui.Handler())
 
-	mw := middleware.Chain(router,
+	resolvedRouter := middleware.ResolveProjectSlug(pool)(router)
+	mw := middleware.Chain(resolvedRouter,
 		middleware.Logging(),
 		middleware.Auth(cfg.JWTSecret, apiKeyService),
 		middleware.AdminAuth(cfg.AdminJWTSecret),

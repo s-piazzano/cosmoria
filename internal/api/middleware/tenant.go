@@ -35,6 +35,13 @@ func Tenant(svc *tenant.Service) func(http.Handler) http.Handler {
 				return
 			}
 
+			// If project has multitenancy disabled, ignore the X-Tenant-ID header
+			multitenant, err := svc.IsMultitenancyEnabled(r.Context(), claims.ProjectID)
+			if err != nil || !multitenant {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ok, err := svc.HasAccess(r.Context(), claims.UserID, tenantID, claims.ProjectID)
 			if err != nil || !ok {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "access_denied"})

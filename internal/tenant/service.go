@@ -115,3 +115,12 @@ func (s *Service) RemoveUser(ctx context.Context, userID, tenantID, projectID st
 	}
 	return nil
 }
+
+func (s *Service) IsMultitenancyEnabled(ctx context.Context, projectID string) (bool, error) {
+	var enabled bool
+	err := s.pool.QueryRow(ctx, `SELECT multitenancy_enabled FROM projects WHERE id = $1`, projectID).Scan(&enabled)
+	if err != nil {
+		return false, fmt.Errorf("tenant: check multitenancy: %w", err)
+	}
+	return enabled, nil
+}

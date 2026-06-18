@@ -1,52 +1,73 @@
 <script lang="ts">
-  import Sidebar_Navigation from '../lib/components/Sidebar_Navigation.svelte';
-  import RecordTable from '../lib/components/RecordTable.svelte';
-  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { fetchProjects } from '../lib/services/api';
+  import type { ProjectWithRole } from '../lib/types';
 
-  // In a real app, the selection would come from your state management of any navigation click
-  // For now, we use the hash or a simple query para in this demo logic
+  let projects: ProjectWithRole[] = [];
+  let loading = true;
+  let error = '';
+
+  onMount(async () => {
+    try {
+      projects = await fetchProjects();
+    } catch (e) {
+      error = 'Failed to load projects.';
+    } finally {
+      loading = false;
+    }
+  });
+
+  function goToProject(slug: string) {
+    goto(`/${slug}`);
+  }
+
+  function goToNewProject() {
+    goto('/projects/new');
+  }
 </script>
 
-<div class="flex min-h-screen bg-gray-50">
-  <Sidebar_Navigation />
+<main class="max-w-5xl mx-auto p-8">
+    <div class="flex items-center justify-between mb-8">
+      <h2 class="text-2xl font-bold text-text">My Projects</h2>
+      <button onclick={goToNewProject}
+              class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-hover text-sm font-medium">
+        + New Project
+      </button>
+    </div>
 
-  <main class="flex-1 p-8 overflow-y-auto">
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-      <p class="text-gray-500">Welcome back, admin. Manage your assets below.</p>
-    </header>
-
-    {#if $page.url.pathname === '/dashboard' || $page.url.pathname === '/'}
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider transition">Active Tenants</h3>
-          <p class="text-4xl font-bold mt-2">12</p>
-        <div class="mt-4 text-green-600 text-xs">+2 this month</div>
+    {#if loading}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {#each Array(3) as _}
+          <div class="bg-surface p-6 rounded-xl shadow-sm border border-border animate-pulse">
+            <div class="h-5 bg-neutral-300 dark:bg-neutral-700 rounded w-3/4 mb-3"></div>
+            <div class="h-4 bg-neutral-300 dark:bg-neutral-700 rounded w-1/2 mb-2"></div>
+            <div class="h-3 bg-neutral-300 dark:bg-neutral-700 rounded w-1/3"></div>
+          </div>
+        {/each}
       </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider transition">Total Records</h3>
-          <p class="text-4xl font-bold mt-2">1,284</p>
-          <div class="mt-4 text-blue-600 text-xs">Verified status: 98%</div>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider transition">Pending Tasks</h3>
-          <p class="text-4xl font-bold mt-2">4</p>
-          <div class="mt-4 text-orange-600 text-xs">Action required</div>
-        </div>
+    {:else if error}
+      <div class="bg-danger-soft border border-danger text-danger px-4 py-3 rounded mb-4">{error}</div>
+    {:else if projects.length === 0}
+      <div class="text-center py-20">
+        <div class="text-muted text-6xl mb-4">📦</div>
+        <h3 class="text-xl font-semibold text-text mb-2">No projects yet</h3>
+        <p class="text-muted mb-6">Create your first project to get started.</p>
+        <button onclick={goToNewProject}
+                class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-hover font-medium">
+          + New Project
+        </button>
       </div>
-
-      <section>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold text-gray-800">Recent Records</h2>
-          <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs">Live Updates Enabled</span>
-        </div>
-        <!-- Example selection of a specific core feature -->
-        <RecordTable />
-      </section>
     {:else}
-      <div class="flex justify-center items-center h-64 border-2 border-dashed border-gray-300 rounded-lg">
-        <p class="text-gray-500">Select a feature to view details.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {#each projects as project}
+          <button onclick={() => goToProject(project.slug)}
+                  class="bg-surface p-6 rounded-xl shadow-sm border border-border hover:shadow-md hover:border-primary transition text-left cursor-pointer">
+            <h3 class="text-lg font-semibold text-text mb-1">{project.name}</h3>
+            <p class="text-sm text-muted mb-3">/{project.slug}</p>
+            <p class="text-xs text-muted">Created {new Date(project.created_at).toLocaleDateString()}</p>
+          </button>
+        {/each}
       </div>
     {/if}
   </main>
-</div>

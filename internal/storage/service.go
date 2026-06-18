@@ -12,7 +12,7 @@ import (
 type File struct {
 	ID         string    `json:"id"`
 	ProjectID  string    `json:"project_id"`
-	TenantID   string    `json:"tenant_id"`
+	TenantID   *string   `json:"tenant_id"`
 	Filename   string    `json:"filename"`
 	S3Key      string    `json:"s3_key"`
 	Size       int64     `json:"size"`
@@ -42,10 +42,15 @@ func (s *Service) StoragePath() string {
 	return ""
 }
 
-func (s *Service) Upload(ctx context.Context, projectID, tenantID, filename, mimeType string, reader io.Reader, size int64, uploadedBy string) (*File, error) {
+func (s *Service) Upload(ctx context.Context, projectID string, tenantID *string, filename, mimeType string, reader io.Reader, size int64, uploadedBy string) (*File, error) {
 	suffix := generateFileID()
 	safeName := sanitizeFilename(filename)
-	key := fmt.Sprintf("%s/%s/%s-%s", projectID, tenantID, suffix, safeName)
+	var key string
+	if tenantID != nil {
+		key = fmt.Sprintf("%s/%s/%s-%s", projectID, *tenantID, suffix, safeName)
+	} else {
+		key = fmt.Sprintf("%s/%s-%s", projectID, suffix, safeName)
+	}
 
 	if err := s.backend.Upload(ctx, key, reader, size, mimeType); err != nil {
 		return nil, fmt.Errorf("storage: upload: %w", err)
@@ -70,7 +75,7 @@ type FileWithURL struct {
 	PresignedURL string `json:"presigned_url"`
 }
 
-func (s *Service) GetByID(ctx context.Context, projectID, tenantID, id string) (*FileWithURL, error) {
+func (s *Service) GetByID(ctx context.Context, projectID string, tenantID *string, id string) (*FileWithURL, error) {
 	f, err := s.GetMeta(ctx, projectID, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -83,39 +88,56 @@ func (s *Service) GetByID(ctx context.Context, projectID, tenantID, id string) (
 
 	if s.backend.IsLocal() {
 		// For local storage, use the API download endpoint
-		url = fmt.Sprintf("/api/projects/%s/tenants/%s/files/%s/download", projectID, tenantID, id)
+		if tenantID != nil {
+			url = fmt.Sprintf("/api/projects/%s/tenants/%s/files/%s/download", projectID, *tenantID, id)
+		} else {
+			url = fmt.Sprintf("/api/projects/%s/files/%s/download", projectID, id)
+		}
 	}
 
 	return &FileWithURL{File: *f, PresignedURL: url}, nil
 }
 
-func (s *Service) GetMeta(ctx context.Context, projectID, tenantID, id string) (*File, error) {
+func (s *Service) GetMeta(ctx context.Context, projectID string, tenantID *string, id string) (*File, error) {
 	var f File
-	err := s.pool.QueryRow(ctx,
-		`SELECT id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by, created_at
-		 FROM files WHERE id = $1 AND project_id = $2 AND tenant_id = $3`,
-		id, projectID, tenantID,
-	).Scan(&f.ID, &f.ProjectID, &f.TenantID, &f.Filename, &f.S3Key, &f.Size, &f.MimeType, &f.UploadedBy, &f.CreatedAt)
+	query := `SELECT id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by, created_at
+	           FROM files WHERE id = $1 AND project_id = $2`
+	args := []any{id, projectID}
+	if tenantID != nil {
+		query += ` AND tenant_id = $3`
+		args = append(args, *tenantID)
+	} else {
+		query += ` AND tenant_id IS NULL`
+	}
+	err := s.pool.QueryRow(ctx, query, args...).Scan(&f.ID, &f.ProjectID, &f.TenantID, &f.Filename, &f.S3Key, &f.Size, &f.MimeType, &f.UploadedBy, &f.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("storage: get: %w", err)
 	}
 	return &f, nil
 }
 
-func (s *Service) List(ctx context.Context, projectID, tenantID string, cursor string, limit int) ([]File, string, error) {
+func (s *Service) List(ctx context.Context, projectID string, tenantID *string, cursor string, limit int) ([]File, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 
 	query := `SELECT id, project_id, tenant_id, filename, s3_key, size, mime_type, uploaded_by, created_at
-	           FROM files WHERE project_id = $1 AND tenant_id = $2`
-	args := []any{projectID, tenantID}
+	           FROM files WHERE project_id = $1`
+	args := []any{projectID}
+	argIdx := 2
+	if tenantID != nil {
+		query += ` AND tenant_id = $2`
+		args = append(args, *tenantID)
+		argIdx = 3
+	} else {
+		query += ` AND tenant_id IS NULL`
+	}
 
 	if cursor != "" {
-		query += ` AND created_at < $3 ORDER BY created_at DESC LIMIT $4`
+		query += fmt.Sprintf(` AND created_at < $%d ORDER BY created_at DESC LIMIT $%d`, argIdx, argIdx+1)
 		args = append(args, cursor, limit+1)
 	} else {
-		query += ` ORDER BY created_at DESC LIMIT $3`
+		query += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d`, argIdx)
 		args = append(args, limit+1)
 	}
 
@@ -143,13 +165,19 @@ func (s *Service) List(ctx context.Context, projectID, tenantID string, cursor s
 	return files, nextCursor, nil
 }
 
-func (s *Service) Delete(ctx context.Context, projectID, tenantID, id string) error {
+func (s *Service) Delete(ctx context.Context, projectID string, tenantID *string, id string) error {
 	var s3Key string
-	err := s.pool.QueryRow(ctx,
-		`DELETE FROM files WHERE id = $1 AND project_id = $2 AND tenant_id = $3
-		 RETURNING s3_key`,
-		id, projectID, tenantID,
-	).Scan(&s3Key)
+	query := `DELETE FROM files WHERE id = $1 AND project_id = $2`
+	args := []any{id, projectID}
+	if tenantID != nil {
+		query += ` AND tenant_id = $3`
+		args = append(args, *tenantID)
+	} else {
+		query += ` AND tenant_id IS NULL`
+	}
+	query += ` RETURNING s3_key`
+
+	err := s.pool.QueryRow(ctx, query, args...).Scan(&s3Key)
 	if err != nil {
 		return fmt.Errorf("storage: delete: %w", err)
 	}

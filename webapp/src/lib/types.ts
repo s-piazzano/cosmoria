@@ -1,8 +1,12 @@
 export type Record = { id: string; collection_id: string; data: any; };
 export type User = { id: string; email: string; };
-export type Project = { id: string; name: string; };
-export type Tenant = { id: string; name: string; };
+export type Project = { id: string; name: string; slug: string; admin_owner_id?: string; multitenancy_enabled: boolean; created_at: string; };
+export type ProjectWithRole = Project & { role: string; };
+export type Tenant = { id: string; project_id: string; name: string; created_at: string; };
 export type Collection = { id: string; name: string; schema: any; };
 export type Role = { id: string; name: string; permissions: Array<{resource: string, action: string}>; };
-export type AuditEntry = { id: string; action: string; resource_id?: string; risk_level: 'low' | 'medium' | 'high'; timestamp: string; };
+export type AuditEntry = { id: string; action: string; user_id?: string; resource?: string; resource_id?: string; ip_address?: string; created_at: string; };
 export type FileSystem = { id: string; filename: string; size: number; mime_type: string; s3_key: string; };
+export type AdminUser = { id: string; email: string; role: string; created_at: string; };
+export type OverviewStats = { tenants: number; collections: number; users: number; records: number; files: number; roles: number; };
+export type OverviewData = { stats: OverviewStats; recent_audit: AuditEntry[]; multitenancy_enabled: boolean; };

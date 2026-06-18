@@ -1,0 +1,4 @@
+ALTER TABLE projects ADD COLUMN multitenancy_enabled BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE records ALTER COLUMN tenant_id DROP NOT NULL;
+ALTER TABLE files ALTER COLUMN tenant_id DROP NOT NULL;

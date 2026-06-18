@@ -112,7 +112,7 @@ func ensureProject(ctx context.Context, pool *pgxpool.Pool, svc *adminauth.Servi
 		return "", fmt.Errorf("lookup project: %w", err)
 	}
 
-	p, err := svc.CreateProject(ctx, adminID, name)
+	p, err := svc.CreateProject(ctx, adminID, name, false)
 	if err != nil {
 		return "", fmt.Errorf("create: %w", err)
 	}

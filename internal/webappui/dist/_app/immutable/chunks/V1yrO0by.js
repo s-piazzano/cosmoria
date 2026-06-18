@@ -1,1 +1,0 @@
-`http://localhost:8080`.replace(/\/$/,``);var e=e=>{localStorage.setItem(`cosmoria_token`,e)};export{e as t};

@@ -4,31 +4,42 @@
     <meta charset="utf-8" />
     <link rel="icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="/_app/immutable/entry/start.BB0TS9Q3.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/DSOnKFD1.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/kZKhhFuA.js" rel="modulepreload">
-		<link href="/_app/immutable/entry/app.pWRbJ7DU.js" rel="modulepreload">
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme');
+          if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <link href="/_app/immutable/entry/start.sCmsfVCf.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/-xofWls-.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DTVPlzmb.js" rel="modulepreload">
+		<link href="/_app/immutable/entry/app.C0qRsOqz.js" rel="modulepreload">
 		<link href="/_app/immutable/chunks/kNaey6uv.js" rel="modulepreload">
 		<link href="/_app/immutable/chunks/xihTtKlq.js" rel="modulepreload">
-		<link href="/_app/immutable/nodes/0._hJa_TM6.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/CA-33Hvk.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/Chl-96s2.js" rel="modulepreload">
+		<link href="/_app/immutable/nodes/0.nbbqH2iO.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/D0dnBUe8.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/CncDjEs7.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/D8dAZEdu.js" rel="modulepreload">
 		
-		<link href="/_app/immutable/assets/0.B1InMW2D.css" rel="stylesheet">
+		<link href="/_app/immutable/assets/0.CfY5OEl-.css" rel="stylesheet">
   </head>
   <body>
     <div style="display: contents">
 			<script>
 				{
-					__sveltekit_avjeqn = {
+					__sveltekit_1nyl74n = {
 						base: ""
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/_app/immutable/entry/start.BB0TS9Q3.js"),
-						import("/_app/immutable/entry/app.pWRbJ7DU.js")
+						import("/_app/immutable/entry/start.sCmsfVCf.js"),
+						import("/_app/immutable/entry/app.C0qRsOqz.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});

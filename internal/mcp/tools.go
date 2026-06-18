@@ -226,15 +226,20 @@ func handleSetup(ctx context.Context, args json.RawMessage, svc *Services) (stri
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	result, project, err := svc.AdminAuth.Setup(ctx, p.Email, p.Password, p.ProjectName)
+	result, err := svc.AdminAuth.Setup(ctx, p.Email, p.Password)
+	if err != nil {
+		return "", err
+	}
+
+	project, err := svc.AdminAuth.CreateProject(ctx, result.Admin.ID, p.ProjectName, false)
 	if err != nil {
 		return "", err
 	}
 
 	out, _ := json.Marshal(map[string]any{
-		"admin_id": result.Admin.ID,
+		"admin_id":   result.Admin.ID,
 		"project_id": project.ID,
-		"token":   result.Token,
+		"token":      result.Token,
 	})
 	return string(out), nil
 }
@@ -248,7 +253,7 @@ func handleProjectCreate(ctx context.Context, args json.RawMessage, svc *Service
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	project, err := svc.AdminAuth.CreateProject(ctx, p.AdminID, p.Name)
+	project, err := svc.AdminAuth.CreateProject(ctx, p.AdminID, p.Name, false)
 	if err != nil {
 		return "", err
 	}
@@ -476,7 +481,7 @@ func handleRecordCreate(ctx context.Context, args json.RawMessage, svc *Services
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	r, err := svc.Records.CreateRecord(ctx, p.ProjectID, p.TenantID, p.CollectionID, p.Data)
+	r, err := svc.Records.CreateRecord(ctx, p.ProjectID, strPtr(p.TenantID), p.CollectionID, p.Data)
 	if err != nil {
 		return "", err
 	}
@@ -501,7 +506,7 @@ func handleRecordList(ctx context.Context, args json.RawMessage, svc *Services) 
 		p.Limit = 50
 	}
 
-	recs, nextCursor, err := svc.Records.ListRecords(ctx, p.ProjectID, p.TenantID, p.CollectionID, p.Cursor, p.Limit)
+	recs, nextCursor, err := svc.Records.ListRecords(ctx, p.ProjectID, strPtr(p.TenantID), p.CollectionID, p.Cursor, p.Limit)
 	if err != nil {
 		return "", err
 	}
@@ -524,7 +529,7 @@ func handleRecordGet(ctx context.Context, args json.RawMessage, svc *Services) (
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	r, err := svc.Records.GetRecord(ctx, p.RecordID, p.ProjectID, p.TenantID)
+	r, err := svc.Records.GetRecord(ctx, p.RecordID, p.ProjectID, strPtr(p.TenantID))
 	if err != nil {
 		return "", err
 	}
@@ -545,7 +550,7 @@ func handleRecordUpdate(ctx context.Context, args json.RawMessage, svc *Services
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	r, err := svc.Records.UpdateRecord(ctx, p.RecordID, p.ProjectID, p.TenantID, p.Data)
+	r, err := svc.Records.UpdateRecord(ctx, p.RecordID, p.ProjectID, strPtr(p.TenantID), p.Data)
 	if err != nil {
 		return "", err
 	}
@@ -565,11 +570,18 @@ func handleRecordDelete(ctx context.Context, args json.RawMessage, svc *Services
 		return "", fmt.Errorf("invalid args: %w", err)
 	}
 
-	if err := svc.Records.DeleteRecord(ctx, p.RecordID, p.ProjectID, p.TenantID); err != nil {
+	if err := svc.Records.DeleteRecord(ctx, p.RecordID, p.ProjectID, strPtr(p.TenantID)); err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("Deleted record %s", p.RecordID), nil
+}
+
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func handleUserAssignRole(ctx context.Context, args json.RawMessage, svc *Services) (string, error) {
@@ -606,7 +618,7 @@ func handleFileList(ctx context.Context, args json.RawMessage, svc *Services) (s
 		p.Limit = 50
 	}
 
-	files, nextCursor, err := svc.Storage.List(ctx, p.ProjectID, p.TenantID, p.Cursor, p.Limit)
+	files, nextCursor, err := svc.Storage.List(ctx, p.ProjectID, strPtr(p.TenantID), p.Cursor, p.Limit)
 	if err != nil {
 		return "", err
 	}

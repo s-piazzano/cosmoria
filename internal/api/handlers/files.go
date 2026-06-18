@@ -16,15 +16,15 @@ type FilesHandler struct {
 }
 
 type fileResponse struct {
-	ID           string `json:"id"`
-	ProjectID    string `json:"project_id"`
-	TenantID     string `json:"tenant_id"`
-	Filename     string `json:"filename"`
-	Size         int64  `json:"size"`
-	MimeType     string `json:"mime_type"`
-	UploadedBy   string `json:"uploaded_by"`
-	CreatedAt    string `json:"created_at"`
-	PresignedURL string `json:"presigned_url,omitempty"`
+	ID           string  `json:"id"`
+	ProjectID    string  `json:"project_id"`
+	TenantID     *string `json:"tenant_id"`
+	Filename     string  `json:"filename"`
+	Size         int64   `json:"size"`
+	MimeType     string  `json:"mime_type"`
+	UploadedBy   string  `json:"uploaded_by"`
+	CreatedAt    string  `json:"created_at"`
+	PresignedURL string  `json:"presigned_url,omitempty"`
 }
 
 func toFileResponse(f *storage.File) fileResponse {
@@ -62,7 +62,7 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectID := claims.ProjectID
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 
 	maxSize := h.Service.MaxUploadSize()
 	if maxSize > 0 {
@@ -90,7 +90,7 @@ func (h *FilesHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	if h.Publisher != nil {
 		h.Publisher.Publish(&realtime.Event{
 			ProjectID:  projectID,
-			TenantID:   tenantID,
+			TenantID:   safeStr(tenantID),
 			Resource:   "files",
 			Action:     "create",
 			ResourceID: f.ID,
@@ -121,7 +121,7 @@ func (h *FilesHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectID := claims.ProjectID
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	cursor := r.URL.Query().Get("cursor")
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -169,7 +169,7 @@ func (h *FilesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectID := claims.ProjectID
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	fileID := r.PathValue("fid")
 
 	f, err := h.Service.GetByID(r.Context(), projectID, tenantID, fileID)
@@ -204,7 +204,7 @@ func (h *FilesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectID := claims.ProjectID
-	tenantID := r.PathValue("tid")
+	tenantID := strPtr(r.PathValue("tid"))
 	fileID := r.PathValue("fid")
 
 	if err := h.Service.Delete(r.Context(), projectID, tenantID, fileID); err != nil {
@@ -215,7 +215,7 @@ func (h *FilesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if h.Publisher != nil {
 		h.Publisher.Publish(&realtime.Event{
 			ProjectID:  projectID,
-			TenantID:   tenantID,
+			TenantID:   safeStr(tenantID),
 			Resource:   "files",
 			Action:     "delete",
 			ResourceID: fileID,

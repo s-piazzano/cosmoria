@@ -5,10 +5,12 @@ import (
 	"net/http"
 
 	"github.com/s-piazzano/cosmoria/internal/adminauth"
+	"github.com/s-piazzano/cosmoria/internal/audit"
 )
 
 type AdminHandler struct {
-	Service *adminauth.Service
+	Service      *adminauth.Service
+	AuditService *audit.Service
 }
 
 type setupRequest struct {
@@ -22,7 +24,8 @@ type loginRequest struct {
 }
 
 type createProjectRequest struct {
-	Name string `json:"name"`
+	Name                string `json:"name"`
+	MultitenancyEnabled bool   `json:"multitenancy_enabled"`
 }
 
 type assignRoleRequest struct {
@@ -31,17 +34,18 @@ type assignRoleRequest struct {
 }
 
 type updateProjectRequest struct {
-	Name      string `json:"name,omitempty"`
-	JWTExpiry *int64 `json:"jwt_expiry,omitempty"`
+	Name                string `json:"name,omitempty"`
+	JWTExpiry           *int64 `json:"jwt_expiry,omitempty"`
+	MultitenancyEnabled *bool  `json:"multitenancy_enabled,omitempty"`
 }
 
 // @Summary Bootstrap the platform
-// @Description Create the first super_admin and default project. Only works once.
+// @Description Create the first super_admin. Only works once.
 // @Tags Admin
 // @Accept json
 // @Produce json
 // @Param body body setupRequest true "Admin credentials"
-// @Success 201 {object} map[string]any "token, admin, project"
+// @Success 201 {object} adminauth.AuthResult
 // @Failure 400 {object} map[string]string
 // @Failure 409 {object} map[string]string
 // @Router /api/admin/setup [post]
@@ -56,17 +60,13 @@ func (h *AdminHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, project, err := h.Service.Setup(r.Context(), req.Email, req.Password, "Default Project")
+	result, err := h.Service.Setup(r.Context(), req.Email, req.Password)
 	if err != nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"token":   result.Token,
-		"admin":   result.Admin,
-		"project": project,
-	})
+	writeJSON(w, http.StatusCreated, result)
 }
 
 // @Summary Check if platform setup is needed
@@ -147,13 +147,97 @@ func (h *AdminHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Service.CreateProject(r.Context(), claims.AdminUserID, req.Name)
+	project, err := h.Service.CreateProject(r.Context(), claims.AdminUserID, req.Name, req.MultitenancyEnabled)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "create_failed"})
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, project)
+}
+
+// @Summary Get current admin user
+// @Security AdminBearerAuth
+// @Description Returns the authenticated admin user's details.
+// @Tags Admin
+// @Produce json
+// @Success 200 {object} adminauth.AdminUser
+// @Failure 401 {object} map[string]string
+// @Router /api/admin/me [get]
+func (h *AdminHandler) Me(w http.ResponseWriter, r *http.Request) {
+	claims := adminauth.GetAdminAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	admin, err := h.Service.GetAdminUser(r.Context(), claims.AdminUserID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, admin)
+}
+
+// @Summary Get project overview
+// @Security AdminBearerAuth
+// @Description Returns project statistics and recent audit logs.
+// @Tags Admin
+// @Produce json
+// @Param pid path string true "Project ID or slug"
+// @Success 200 {object} map[string]any
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/admin/projects/{pid}/overview [get]
+func (h *AdminHandler) Overview(w http.ResponseWriter, r *http.Request) {
+	claims := adminauth.GetAdminAuth(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	projectID := r.PathValue("pid")
+	if projectID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_project_id"})
+		return
+	}
+
+	if claims.Role != "super_admin" {
+		ok, err := h.Service.HasProjectAccess(r.Context(), claims.AdminUserID, projectID)
+		if err != nil || !ok {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+			return
+		}
+	}
+
+	stats, err := h.Service.GetOverviewStats(r.Context(), projectID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+
+	auditEntries, _, err := h.AuditService.List(r.Context(), projectID, "", 10)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+
+	if auditEntries == nil {
+		auditEntries = []audit.AuditEntry{}
+	}
+
+	project, err := h.Service.GetProject(r.Context(), projectID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"stats":                stats,
+		"recent_audit":         auditEntries,
+		"multitenancy_enabled": project.MultitenancyEnabled,
+	})
 }
 
 // @Summary List accessible projects
@@ -265,8 +349,9 @@ func (h *AdminHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project, err := h.Service.UpdateProject(r.Context(), projectID, adminauth.UpdateProjectInput{
-		Name:      req.Name,
-		JWTExpiry: req.JWTExpiry,
+		Name:                req.Name,
+		JWTExpiry:           req.JWTExpiry,
+		MultitenancyEnabled: req.MultitenancyEnabled,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update_failed"})
