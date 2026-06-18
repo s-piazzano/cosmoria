@@ -1,7 +1,7 @@
 <script lang="ts">
   import Sidebar_Navigation from '../lib/components/Sidebar_Navigation.svelte';
   import RecordTable from '../lib/components/RecordTable.svelte';
-  import { page } from '$_app/stores';
+  import { page } from '$app/stores';
 
   // In a real app, the selection would come from your state management of any navigation click
   // For now, we use the hash or a simple query para in this demo logic
@@ -29,7 +29,7 @@
           <div class="mt-4 text-blue-600 text-xs">Verified status: 98%</div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider transition">Pending Tasks</h3>_m**
+          <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider transition">Pending Tasks</h3>
           <p class="text-4xl font-bold mt-2">4</p>
           <div class="mt-4 text-orange-600 text-xs">Action required</div>
         </div>
@@ -44,7 +44,7 @@
         <RecordTable />
       </section>
     {:else}
-      <div class="flex justify-center items-center h-64 border-2 border_dashed border-gray-300 rounded-lg">
+      <div class="flex justify-center items-center h-64 border-2 border-dashed border-gray-300 rounded-lg">
         <p class="text-gray-500">Select a feature to view details.</p>
       </div>
     {/if}

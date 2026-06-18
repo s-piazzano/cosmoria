@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } =_svelte;
+  import { onMount } from 'svelte';
   import type { Record } from '../types';
 
   export let collectionName: string = "Records";

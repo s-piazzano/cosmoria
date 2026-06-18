@@ -46,6 +46,11 @@ func Auth(secret string, apiKeySvc *auth.ApiKeyService) func(http.Handler) http.
 				return
 			}
 
+			if !strings.HasPrefix(r.URL.Path, "/api/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")

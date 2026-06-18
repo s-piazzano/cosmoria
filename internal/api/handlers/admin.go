@@ -69,6 +69,21 @@ func (h *AdminHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// @Summary Check if platform setup is needed
+// @Description Returns true if no admin users exist (first-run).
+// @Tags Admin
+// @Produce json
+// @Success 200 {object} map[string]bool
+// @Router /api/admin/setup/status [get]
+func (h *AdminHandler) SetupStatus(w http.ResponseWriter, r *http.Request) {
+	needsSetup, err := h.Service.NeedsSetup(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"needs_setup": needsSetup})
+}
+
 // @Summary Admin login
 // @Description Authenticate as a platform admin and receive a JWT.
 // @Tags Admin

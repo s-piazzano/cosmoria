@@ -9,6 +9,7 @@ import (
 
 var adminPublicRoutes = []string{
 	"/api/admin/setup",
+	"/api/admin/setup/status",
 	"/api/admin/login",
 }
 

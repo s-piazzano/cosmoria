@@ -43,6 +43,15 @@ func NewService(pool *pgxpool.Pool, cfg *core.Config) *Service {
 	return &Service{pool: pool, cfg: cfg}
 }
 
+func (s *Service) NeedsSetup(ctx context.Context) (bool, error) {
+	var count int
+	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("adminauth: check needs setup: %w", err)
+	}
+	return count == 0, nil
+}
+
 func (s *Service) Setup(ctx context.Context, email, password, projectName string) (*AuthResult, *Project, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/s-piazzano/cosmoria/internal/auth"
 	"github.com/s-piazzano/cosmoria/internal/collections"
 	"github.com/s-piazzano/cosmoria/internal/core"
+	"github.com/s-piazzano/cosmoria/internal/webappui"
 	_ "github.com/s-piazzano/cosmoria/docs"
 	"github.com/s-piazzano/cosmoria/internal/rbac"
 	"github.com/s-piazzano/cosmoria/internal/realtime"
@@ -114,6 +115,7 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 
 	router.HandleFunc("GET /api/admin/projects/{pid}/audit-logs", auditHandler.List)
 
+	router.HandleFunc("GET /api/admin/setup/status", adminHandler.SetupStatus)
 	router.Handle("POST /api/admin/setup", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Setup)))
 	router.Handle("POST /api/admin/login", middleware.RateLimit(10, time.Minute)(http.HandlerFunc(adminHandler.Login)))
 	router.HandleFunc("POST /api/admin/projects", adminHandler.CreateProject)
@@ -152,6 +154,8 @@ func BuildHandler(cfg *core.Config, pool *pgxpool.Pool) (http.Handler, func()) {
 	router.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs/doc.json", http.StatusMovedPermanently)
 	})
+
+	router.Handle("GET /", webappui.Handler())
 
 	mw := middleware.Chain(router,
 		middleware.Logging(),

@@ -33,7 +33,7 @@
         {:else}
           {#each history as log}
             <tr>
-              <td class="px-4 py-3 font-medium">{@1}</strong></td>
+              <td class="px-4 py-3 font-medium">{log.action}</td>
               <td class="px-4 py-3 text-gray-600">{log.resource_id || 'N/A'}</td>
               <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded border ${getRiskColor(log.risk_level)} font-bold">

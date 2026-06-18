@@ -1,1 +1,8 @@
 /cosmoria
+
+# Webapp
+webapp/node_modules/
+webapp/.svelte-kit/
+webapp/build/
+webapp/.env
+webapp/.env.*

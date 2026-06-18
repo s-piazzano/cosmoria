@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Component } from 'svelte';
   export let activeItem: string = 'dashboard';
 </script>
 
